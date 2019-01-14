@@ -929,49 +929,51 @@ public int maxDiffSubArrays(int[] nums) {
 		return nums;
 	}
 ## 53. 翻转字符串
-	//使用JAVA API
-	public String reverseWords(String s) {
-		    if (s.equals(""))
-		        return s;
-		    String regex = "\\s+";
-		    String[] strArr = s.trim().split(regex);
-		
-		    String newStr = "";
-		    for (int i = strArr.length  1; i > 1; i) {
-		        newStr += strArr[i];
-		        newStr += " ";
-		    }
-	    return newStr.trim();
-	}
-	//不使用JAVA API
-	public String reverseWords(String s) {
+```java
+//使用JAVA API
+public String reverseWords(String s) {
 	    if (s.equals(""))
 	        return s;
+	    String regex = "\\s+";
+	    String[] strArr = s.trim().split(regex);
+	
 	    String newStr = "";
-	    int subEnd = 1;
-	    boolean flag = false;
-	    for (int i = s.length()  1; i > 1; i) {
-	        char c = s.charAt(i);
-	        if (c != ' ' && !flag) {
-	            subEnd = i;
-	            flag = true;
-	        }
-	        if (c == ' ' && flag) {
-	            for (int j = i + 1; j <= subEnd; j++) {
-	                newStr += s.charAt(j);
-	            }
-	            flag = false;
-	            newStr += " ";
-	        } else if (flag && i == 0) {
-	            for (int j = i; j <= subEnd; j++) {
-	                newStr += s.charAt(j);
-	            }
-	            flag = false;
-	            newStr += " ";
-	        }
+	    for (int i = strArr.length  1; i > 1; i) {
+	        newStr += strArr[i];
+	        newStr += " ";
 	    }
-	    return newStr.trim();
-	}
+    return newStr.trim();
+}
+//不使用JAVA API
+public String reverseWords(String s) {
+    if (s.equals(""))
+        return s;
+    String newStr = "";
+    int subEnd = 1;
+    boolean flag = false;
+    for (int i = s.length()  1; i > 1; i) {
+        char c = s.charAt(i);
+        if (c != ' ' && !flag) {
+            subEnd = i;
+            flag = true;
+        }
+        if (c == ' ' && flag) {
+            for (int j = i + 1; j <= subEnd; j++) {
+                newStr += s.charAt(j);
+            }
+            flag = false;
+            newStr += " ";
+        } else if (flag && i == 0) {
+            for (int j = i; j <= subEnd; j++) {
+                newStr += s.charAt(j);
+            }
+            flag = false;
+            newStr += " ";
+        }
+    }
+    return newStr.trim();
+}
+```
 ## 54.PASS
 ## 55.PASS
 ## 56. 两数之和
