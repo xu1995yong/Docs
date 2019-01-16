@@ -1,6 +1,11 @@
 # JAVA集合框架
 
-##  1. ArrayList
+## 概览
+
+![âjava éåæ¡æ¶ æ¥å£âçå¾çæç´¢ç"æ](https://upload-images.jianshu.io/upload_images/3985563-e7febf364d8d8235.png?imageMogr2/auto-orient/strip%7CimageView2/2/w/939/format/webp)
+
+
+##  ArrayList
 
 ###  总体介绍
 
@@ -51,7 +56,7 @@ public E remove(int index) {
 
 
 
-## 2. LinkedList
+## LinkedList
 
 ### 总体介绍
 
