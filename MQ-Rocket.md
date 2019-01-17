@@ -107,6 +107,7 @@ PushConsumer中通过“长轮询”方式达到Push效果，长轮询方式既�
 
 3.1 Consume Messages
 
+```java
 	//需要设置三个参数：1.Consumer的GroupName，2.NameServer的地址和端口号，3.要订阅的Topic
 	public class Consumer {
 	    public static void main(String[] args) throws Exception{
@@ -126,6 +127,7 @@ PushConsumer中通过“长轮询”方式达到Push效果，长轮询方式既�
 	        System.out.printf("Consumer Started.%n");
 	    }
 	}
+ ```
 
 ## 有序消息
 
