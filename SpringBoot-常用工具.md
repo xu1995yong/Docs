@@ -27,8 +27,6 @@
 </build>
 ```
 
-
-
 # 2. SpringBoot中的日志
 
 1. 开启DEBUG模式
