@@ -2434,7 +2434,7 @@ public int climbStairs(int n) {
 		return list;
 	}
 ## 159. 寻找旋转排序数组中的最小值
-	```java
+```java
 /**
      首先，我们可以把一个排序数组先分割成两部分[first, second]，其中，first代表前面几个元素，second代表之后的， 例如对于数组[0, 1, 2, 4, 5, 6, 7]，可以设定first = [0, 1, 2], second = [4, 5, 6, 7]. 那么经过旋转之后，数组就变成了[second, first]，我们观察一下，这个新数组有这样两个特性：（1）second中所有元素都大于first中任意元素（2）second与first都是递增的序列
 */
@@ -2456,6 +2456,7 @@ public int findMin(int[] nums) {
     return nums[left];
 }
 ```
+
 ## 160. 寻找旋转排序数组中的最小值（有重复数字）
 ```java
 public int findMin(int[] nums) {
