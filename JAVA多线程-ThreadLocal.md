@@ -2,54 +2,36 @@
 
 ThreadLocal，也即：线程局部变量。
 
+## ThreadLocal的实现原理
+
+### ThreadLocalMap介绍
+
+ThreadLocalMap是ThreadLocal的静态内部类。ThreadLocalMap用于保存线程与其局部变量的映射。
+
+### ThreadLocal的原理
+
+为了实现ThreadLocal的功能，每一个线程中都有一个ThreadLocalMap对象，用于保存该线程的局部变量值。但是对该ThreadLocalMap对象的维护工作都是ThreadLocal类的对象进行的。
+
+## ThreadLocal方法剖析
+
+### get方法
+
 ```java
-
-final ThreadLocal<ArrayList> threadLocal = new ThreadLocal<ArrayList>() {
-
-
-		@Override
-		protected ArrayList initialValue() {
-			return new ArrayList();
-		}
-	};
-	ExecutorService executors = Executors.newFixedThreadPool(5);
-	Callable setTask = () -> {
-		ArrayList list = threadLocal.get();
-		System.out.println(Thread.currentThread().getName());
-		list.add(Thread.currentThread().getName());
-		return null;
-	};
-
-	Callable getTask = () -> {
-		synchronized (MainTest.class) {
-			ArrayList<String> list = threadLocal.get();
-			System.out.println();
-			System.out.println(Thread.currentThread().getName());
-			// System.out.println(threadLocal);
-			// System.out.println(System.identityHashCode(list));
-			// for (String str : list) {
-			// System.out.println(str);
-			// }
-			System.out.println(list.size());
-			System.out.println();
-			return null;
-		}
-
-	};
-
-	for (int i = 0; i < 10; i++) {
-		executors.submit(setTask);
-	}
-	// Thread.sleep(500);
-	// for (int i = 0; i < 10; i++) {
-	// executors.submit(getTask);
-	// }
-
-	executors.shutdown();
+public T get() {
+    Thread t = Thread.currentThread();  //获取当前线程
+    ThreadLocalMap map = getMap(t);//获取当前线程中保存的ThreadLocalMap对象
+    if (map != null) {
+        ThreadLocalMap.Entry e = map.getEntry(this);
+        if (e != null) {
+            T result = (T)e.value;
+            return result;
+        }
+    }
+    return setInitialValue();
+}
 ```
 
 
 
-## ThreadLocal的实现原理
 
-Thread类中的成员变量，ThreadLocalMap
+
