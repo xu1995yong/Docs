@@ -4,68 +4,74 @@
 
 ![âjava éåæ¡æ¶ æ¥å£âçå¾çæç´¢ç"æ](https://upload-images.jianshu.io/upload_images/3985563-e7febf364d8d8235.png?imageMogr2/auto-orient/strip%7CimageView2/2/w/939/format/webp)
 
+## List接口
 
-##  ArrayList
+###  ArrayList
 
-###  总体介绍
+#### 总体介绍
 
 1.	ArrayList允许放入`null`元素。
 2.	ArrayList未实现多线程同步。
-3.	ArrayList使用capacity字段表示底层数组的实际大小。
-4.	ArrayList使用size字段表示实际存储的元素的数量。
-
-
-###  方法剖析
-**add()**
-**addAll()**
-**set()**
-**get()**
-
-**grow()**
-
-当向容器中添加元素时，如果容量不足，容器会自动增大底层数组的大小。扩容操作最终是通过`grow()`方法完成的。
+3.	ArrayList的底层数据类型为数组。其数据结构如下所示：
 
 ```java
-private void grow(int minCapacity) {
+Object[] elementData; 
+private int size;//表示实际存储的元素的数量。
+```
+
+####  ArrayList的扩容机制
+
+创建对象时可以指定ArrayList的初始大小：
+
+```java
+public ArrayList(int initialCapacity) {
+    if (initialCapacity > 0) {
+        this.elementData = new Object[initialCapacity];
+    } else if (initialCapacity == 0) {
+        this.elementData = EMPTY_ELEMENTDATA;
+    } 
+}
+```
+
+当容量不足时，ArrayList会调用grow()方法自动扩容：
+
+```java
+private Object[] grow() {
+    return grow(size + 1);
+}
+private Object[] grow(int minCapacity) {
+    return elementData = Arrays.copyOf(elementData,newCapacity(minCapacity));
+}
+//计算新容量的方式：
+private int newCapacity(int minCapacity) {
     int oldCapacity = elementData.length;
-    int newCapacity = oldCapacity + (oldCapacity >> 1);//原来的1.5倍
-    if (newCapacity - minCapacity < 0)
-        newCapacity = minCapacity;
-    if (newCapacity - MAX_ARRAY_SIZE > 0)
-        newCapacity = hugeCapacity(minCapacity);
-    elementData = Arrays.copyOf(elementData, newCapacity);//扩展空间并复制
-}
-```
-
-**remove()**
-
-`remove()`方法有两个版本，一个是`remove(int index)`删除指定位置的元素，另一个是`remove(Object o)`删除第一个满足`o.equals(elementData[index])`的元素。删除操作是`add()`操作的逆过程，需要将删除点之后的元素向前移动一个位置。需要注意的是为了让GC起作用，必须显式的为最后一个位置赋`null`值。
-
-```java
-public E remove(int index) {
-    rangeCheck(index);
-    modCount++;
-    E oldValue = elementData(index);
-    int numMoved = size - index - 1;
-    if (numMoved > 0)
-        System.arraycopy(elementData, index+1, elementData, index, numMoved);
-    elementData[--size] = null; //清除该位置的引用，让GC起作用
-    return oldValue;
+    int newCapacity = oldCapacity + (oldCapacity >> 1);//newCapacity是1.5倍的oldCapacity
+    if (newCapacity - minCapacity <= 0) {
+  //如果要求的minCapacity比计算出的newCapacity大，且当前elementData是空数组，则返回minCapacity与10相比更大的那个
+        //即如果创建ArrayList对象时未指定初始容量，则返回默认容量10
+        if (elementData == DEFAULTCAPACITY_EMPTY_ELEMENTDATA)
+            return Math.max(DEFAULT_CAPACITY, minCapacity);
+   //如果要求的minCapacity比计算出的newCapacity大，且当前elementData不是空数组，则返回要求的minCapacity
+        return minCapacity;
+    }
+    //如果计算出的newCapacity比要求的minCapacity大，则比较newCapacity和MAX_ARRAY_SIZE：
+    //如果newCapacity比MAX_ARRAY_SIZE小或相等，则返回newCapacity。
+    //如果newCapacity比MAX_ARRAY_SIZE大，则比较minCapacity和MAX_ARRAY_SIZE
+    //如果minCapacity 比 MAX_ARRAY_SIZE大，则返回Integer.MAX_VALUE，否则返回MAX_ARRAY_SIZE
+    return (newCapacity - MAX_ARRAY_SIZE <= 0)? newCapacity: hugeCapacity(minCapacity);
 }
 ```
 
 
+### LinkedList
 
-## LinkedList
-
-### 总体介绍
+#### 总体介绍
 
 *LinkedList*同时实现了*List*接口和*Deque*接口，也就是说它既可以看作一个顺序容器，又可以看作一个队列（*Queue*），同时又可以看作一个栈（*Stack*）。
 
-*LinkedList*底层**通过双向链表实现**，本节将着重讲解插入和删除元素时双向链表的维护过程，也即是之间解跟*List*接口相关的函数，而将*Queue*和*Stack*以及*Deque*相关的知识放在下一节讲。双向链表的每个节点用内部类*Node*表示。*LinkedList*通过`first`和`last`引用分别指向链表的第一个和最后一个元素。注意这里没有所谓的哑元，当链表为空的时候`first`和`last`都指向`null`。
+*LinkedList*底层通过**双向链表**实现，其数据类型如下所示：
 
 ```Java
-//Node内部类
 private static class Node<E> {
     E item;
     Node<E> next;
@@ -76,107 +82,509 @@ private static class Node<E> {
         this.prev = prev;
     }
 }
+Node<E> first;//指向链表头节点的指针
+Node<E> last;//指向链表尾节点的指针
 ```
 
-### 方法剖析
+#### 方法剖析
 
-**add()**
+#####  add(E e)方法
 
 ```Java
 public boolean add(E e) {
+    linkLast(e);
+    return true;
+} 
+void linkLast(E e) {
     final Node<E> l = last;
-    final Node<E> newNode = new Node<>(l, e, null);
-    last = newNode;
+    final Node<E> newNode = new Node<>(l, e, null);//创建一个新节点，该节点的prev指向l，next指向null
+    last = newNode;//链表的尾指针指向新创建的节点
     if (l == null)
-        first = newNode;//原来链表为空，这是插入的第一个元素
+        first = newNode;
     else
         l.next = newNode;
     size++;
-    return true;
+    modCount++;
 }
 ```
 
-`add(int index, E element)`的逻辑稍显复杂，可以分成两部分，1.先根据index找到要插入的位置；2.修改引用，完成插入操作。
+##### add(int index, E element)方法
 
 ```Java
-//add(int index, E element)
 public void add(int index, E element) {
-	checkPositionIndex(index);//index >= 0 && index <= size;
-	if (index == size)//插入位置是末尾，包括列表为空的情况
-        add(element);
-    else{
-    	Node<E> succ = node(index);//1.先根据index找到要插入的位置
-        //2.修改引用，完成插入操作。
-        final Node<E> pred = succ.prev;
-        final Node<E> newNode = new Node<>(pred, e, succ);
-        succ.prev = newNode;
-        if (pred == null)//插入位置为0
-            first = newNode;
-        else
-            pred.next = newNode;
-        size++;
+    checkPositionIndex(index);
+    if (index == size)
+        linkLast(element);
+    else
+        linkBefore(element, node(index));//node()方法用于找到该索引出的当前节点
+}
+void linkBefore(E e, Node<E> succ) {//在succ节点之前插入元素
+    final Node<E> pred = succ.prev;
+    //新创建一个节点，该节点的prev指向succ的前一个节点，next指向succ
+    final Node<E> newNode = new Node<>(pred, e, succ);
+    succ.prev = newNode;
+    if (pred == null)
+        first = newNode;
+    else
+        pred.next = newNode;
+    size++;
+    modCount++;
+}
+```
+
+##### get(int index)方法
+
+```Java
+public E get(int index) {
+    checkElementIndex(index);
+    return node(index).item;
+}
+Node<E> node(int index) {
+    if (index < (size >> 1)) {//从链表头部开始查找
+        Node<E> x = first;
+        for (int i = 0; i < index; i++)
+            x = x.next;
+        return x;
+    } else { //从链表尾部开始查找
+        Node<E> x = last;
+        for (int i = size - 1; i > index; i--)
+            x = x.prev;
+        return x;
     }
 }
 ```
 
-上面代码中的`node(int index)`函数有一点小小的trick，因为链表双向的，可以从开始往后找，也可以从结尾往前找，具体朝那个方向找取决于条件`index < (size >> 1)`，也即是index是靠近前端还是后端。
-
-**remove()**
-
-`remove()`方法也有两个版本，一个是删除跟指定元素相等的第一个元素`remove(Object o)`，另一个是删除指定下标处的元素`remove(int index)`。
-
-![LinkedList_remove.png](PNGFigures/LinkedList_remove.png)
-
-两个删除操作都要1.先找到要删除元素的引用，2.修改相关引用，完成删除操作。在寻找被删元素引用的时候`remove(Object o)`调用的是元素的`equals`方法，而`remove(int index)`使用的是下标计数，两种方式都是线性时间复杂度。在步骤2中，两个`revome()`方法都是通过`unlink(Node<E> x)`方法完成的。这里需要考虑删除元素是第一个或者最后一个时的边界情况。
+##### remove(int index)方法
 
 ```Java
-//unlink(Node<E> x)，删除一个Node
+public E remove(int index) {
+    checkElementIndex(index);
+    return unlink(node(index));
+}
 E unlink(Node<E> x) {
     final E element = x.item;
     final Node<E> next = x.next;
     final Node<E> prev = x.prev;
-    if (prev == null) {//删除的是第一个元素
+    if (prev == null) {//当该节点不是头节点时
         first = next;
-    } else {
+    } else {//当该节点不是头节点时
         prev.next = next;
         x.prev = null;
     }
-    if (next == null) {//删除的是最后一个元素
+    if (next == null) {//当该节点是尾节点时
         last = prev;
-    } else {
+    } else {//当该节点不是尾节点时
         next.prev = prev;
         x.next = null;
     }
-    x.item = null;//let GC work
+    x.item = null;
     size--;
+    modCount++;
     return element;
 }
 ```
-
- **get()**
-
-`get(int index)`得到指定下标处元素的引用，通过调用上文中提到的`node(int index)`方法实现。
-```Java
-public E get(int index) {
-    checkElementIndex(index);//index >= 0 && index < size;
-    return node(index).item;
+##### remove(Object o)方法
+```java
+ //当LinkedList中有多个相同的元素o时，该方法只删除其中的一个。
+public boolean remove(Object o) {
+    if (o == null) {
+        for (Node<E> x = first; x != null; x = x.next) {
+            if (x.item == null) {
+                unlink(x);
+                return true;
+            }
+        }
+    } else {
+        for (Node<E> x = first; x != null; x = x.next) {
+            if (o.equals(x.item)) {
+                unlink(x);
+                return true;
+            }
+        }
+    }
+    return false;
 }
 ```
 
-**set()**
-
-`set(int index, E element)`方法将指定下标处的元素修改成指定值，也是先通过`node(int index)`找到对应下表元素的引用，然后修改`Node`中`item`的值。
+##### set(int index, E element)方法
 
 ```Java
 public E set(int index, E element) {
     checkElementIndex(index);
     Node<E> x = node(index);
     E oldVal = x.item;
-    x.item = element;//替换新值
+    x.item = element;
     return oldVal;
 }
 ```
 
+## Deque接口
 
+Deque接口提供了在队列两端操纵元素的方法。Stack和Queue都可以直接使用Deque接口来实现其操作。
 
-## 
+Deque有两个通用实现：ArrayDeque和LinkedList。官方更推荐使用*AarryDeque*用作栈和队列。
+
+### ArrayDeque
+
+#### 总体介绍
+
+ArrayDeque的底层通过循环数组实现。数组的任何一点都可能被看作起点或者终点。其数据结构如下所示：
+```java
+Object[] elements;
+int head;//head指向队列首端第一个有效元素
+int tail;//tail指向队列尾端第一个可以插入元素的空位
+```
+ArrayDeque不允许放入`null`元素。
+ArrayDeque是非线程安全的。
+
+#### 方法剖析
+
+##### addFirst(E e)方法
+
+```java
+public void addFirst(E e) {
+    if (e == null)
+        throw new NullPointerException();
+    final Object[] es = elements;
+//每次添加元素时，head的值先减1，再将元素添加到head值减1后指向的位置，这样head就始终指向队首的第一个元素。
+    es[head = dec(head, es.length)] = e;
+    if (head == tail)
+        grow(1);
+}
+```
+
+##### addLast(E e)方法
+
+```java
+public void addLast(E e) {
+    if (e == null)
+        throw new NullPointerException();
+    final Object[] es = elements;
+//每次添加元素时，先将元素添加到tail指向的位置，再将tail的值加1。这样tail就始终指向队尾第一个可以插入的位置。
+    es[tail] = e;
+    if (head == (tail = inc(tail, es.length)))
+        grow(1);
+}
+```
+
+##### pollFirst()方法
+
+```java
+public E pollFirst() {
+    final Object[] es;
+    final int h;
+    E e = elementAt(es = elements, h = head);
+    if (e != null) {
+    //从对首取元素时，先获取head指向位置中的元素，head指向的位置赋空值，然后head的值加1.
+        es[h] = null;
+        head = inc(h, es.length);
+    }
+    return e;
+}
+```
+
+##### pollLast()方法
+
+```java
+public E pollLast() {
+    final Object[] es;
+    final int t;
+    //从队尾取元素时，tail的值先减1，再获取tail指向的位置中的元素
+    E e = elementAt(es = elements, t = dec(tail, es.length));
+    if (e != null)
+        es[tail = t] = null;
+    return e;
+}
+```
+
+##### removeFirst()方法
+
+```java
+public E removeFirst() {
+    E e = pollFirst();
+    if (e == null)
+        throw new NoSuchElementException();
+    return e;
+}
+```
+
+##### removeLast()方法
+
+```java
+public E removeLast() {
+    E e = pollLast();
+    if (e == null)
+        throw new NoSuchElementException();
+    return e;
+}
+```
+
+## PriorityQueue
+
+### 总体介绍
+
+PriorityQueue是基于小顶堆(任意一个非叶子节点的权值，都不大于其左右子节点的权值)的无界的优先队列。优先队列的元素根据其自然顺序排序，或者由队列构造时传入的比较器排序。
+
+由于PriorityQueue是基于小顶堆实现，所以其内部以数组作为底层数据类型。PriorityQueue不允许插入null值。
+
+### 方法剖析
+
+#### add()方法和offer()方法
+
+add(E e)方法和offer(E e)方法在PriorityQueue中完全相同。将元素添加到队列的尾端，然后通过siftUp()方法调整堆。
+
+```java
+public boolean offer(E e) {
+    if (e == null)
+        throw new NullPointerException();
+    modCount++;
+    int i = size;
+    if (i >= queue.length)
+        grow(i + 1);//自动扩容
+    siftUp(i, e);//调整小顶堆
+    size = i + 1;
+    return true;
+}
+```
+
+#### siftUp()方法
+
+```java
+//从k指定的位置开始，将要插入的节点逐层与当前的parent进行比较并交换，直到满足要插入的节点大于其parent节点为止
+private static <T> void siftUpComparable(int k, T x, Object[] es) {
+    Comparable<? super T> key = (Comparable<? super T>) x;
+    while (k > 0) {
+        int parent = (k - 1) >>> 1;
+        Object e = es[parent];
+        if (key.compareTo((T) e) >= 0) //要插入的节点每次和其父节点相比
+            break; //如果符合小顶堆的定义，直接跳出
+        es[k] = e; //如果不符合调整堆
+        k = parent;
+    }
+    es[k] = key;
+}
+```
+
+#### remove()和poll()方法
+
+remove()`和`poll()`方法都是获取并删除队首元素，区别是当方法失败时前者抛出异常，后者返回`null。由于删除操作会改变队列的结构，为维护小顶堆的性质，需要进行必要的调整。
+
+```java
+public E poll() {
+    final Object[] es;
+    final E result;
+
+    if ((result = (E) ((es = queue)[0])) != null) {
+        modCount++;
+        final int n;
+        final E x = (E) es[(n = --size)];
+        es[n] = null;
+        if (n > 0) {
+            final Comparator<? super E> cmp;
+            if ((cmp = comparator) == null)
+                siftDownComparable(0, x, es, n);
+            else
+                siftDownUsingComparator(0, x, es, n, cmp);
+        }
+    }
+    return result;
+}
+```
+#### siftDown()方法
+
+```java
+//从k指定的位置开始，将要插入的值逐层向下与当前的左右孩子中较小的交换，直到要插入的值小于等于其左右孩子为止
+private static <T> void siftDownComparable(int k, T x, Object[] es, int n) {
+    Comparable<? super T> key = (Comparable<? super T>)x;
+    int half = n >>> 1;           // loop while a non-leaf
+    while (k < half) {
+        int child = (k << 1) + 1; //child指向左孩子
+        Object c = es[child];
+        int right = child + 1;
+        if (right < n && ((Comparable<? super T>) c).compareTo((T) es[right]) > 0)
+            c = es[child = right];  //如果右孩子比左孩子小，则child指向右孩子
+        if (key.compareTo((T) c) <= 0)
+            break;
+        es[k] = c;
+        k = child;
+    }
+    es[k] = key;
+}
+```
+
+## HashSet and HashMap
+
+### 总体介绍
+
+HashSet和HashMap有相同的实现，前者仅仅是对后者做了一层包装，即**HashSet里有一个HashMap（适配器模式）**。
+
+- HashMap内部的数据类型为数组加链表的方式，其中数组中存放的是链表的头节点的指针。HashMap内部采用链地址法解决Hash冲突问题。
+- HashMap*实现了*Map接口，允许放入`key`为`null`的元素，也允许插入`value`为`null`的元素
+- HashMap未实现同步。
+- HashMap不保证元素顺序，根据需要该容器可能会对元素重新哈希，元素的顺序也会被重新打散。
+
+对于HashMap，有两个参数可以影响其性能：初始容量（inital capacity）和负载系数（load factor）。初始容量指定了初始`table`的大小，负载系数用来指定自动扩容的临界值。当`entry`的数量超过`capacity*load_factor`时，容器将自动扩容并重新哈希。HashMap中默认load_factor为0.75。
+
+将对象放入到*HashMap*或*HashSet*中时，有两个方法需要特别关心：`hashCode()`和`equals()`。**`hashCode()`方法决定了对象会被放到哪个`bucket`里，当多个对象的哈希值冲突时，`equals()`方法决定了这些对象是否是“同一个对象”**。所以，如果要将自定义的对象放入到`HashMap`或`HashSet`中，需要重写key对象的`hashCode()`和`equals()`方法。**在比较时，先比较key的hash和key的地址是否相同，再使用equals()方法比较两个key对象是否相同**。
+
+### 方法剖析
+
+#### put(K key, V value)方法
+
+此方法的思想为：首先根据key得到hashcode，根据hashcode得到要存储的位置i=hash&(n-1),其中n为数组的长度(只有n为2的幂次方时，这句话才与hash%n等价，这就解释了为什么了HashMap的容量必须为2的幂次方)。
+
+得到存储位置i之后，检查此位置是否已经有元素，如果没有，则直接存储在该位置即可，如果有，则在位置的所有节点中遍历是否含有该key，如果已经有了该key，则更新其value即可，如果没有该key，则在该链表的末尾加入该新节点即可。
+
+```java
+public V put(K key, V value) {
+    return putVal(hash(key), key, value, false, true);
+}
+final V putVal(int hash, K key, V value, boolean onlyIfAbsent,boolean evict) {
+    Node<K,V>[] tab; Node<K,V> p; int n, i;
+    if ((tab = table) == null || (n = tab.length) == 0)
+        n = (tab = resize()).length;
+    //根据key的hash值查找要存储的位置。如果p为null，说明该位置还没有存储元素，则直接在该位置保存值
+    if ((p = tab[i = (n - 1) & hash]) == null)
+        tab[i] = newNode(hash, key, value, null);
+    else {
+        //否则检查在该位置的链表中是否有了该key,是先检查头结点是否为该key，如果不等于则在剩余的节点中寻找
+        Node<K,V> e; K k;
+        //如果链表的头节点的key与要插入的key相同，则e指针指向头节点
+        if (p.hash == hash &&((k = p.key) == key || (key != null && key.equals(k))))
+            e = p;
+        else if (p instanceof TreeNode)
+            e = ((TreeNode<K,V>)p).putTreeVal(this, tab, hash, key, value);
+        else {
+            //否则遍历链表
+            for (int binCount = 0; ; ++binCount) {
+                //如果e指向null，说明链表中找不到相等的key，则新创建节点，插入到链表的最后。
+                if ((e = p.next) == null) {
+                    p.next = newNode(hash, key, value, null);
+                    if (binCount >= TREEIFY_THRESHOLD - 1)
+                        treeifyBin(tab, hash);
+                    break;
+                }
+                //如果e指向的节点的key与要插入的key相等，则跳出循环。
+                if (e.hash == hash &&((k = e.key) == key || (key != null && key.equals(k))))
+                    break;
+                p = e;
+            }
+        }
+        //如果e不为空，则说明key已经存在，则只需要更新e指向的节点的value即可。
+        if (e != null) { 
+            V oldValue = e.value;
+            if (!onlyIfAbsent || oldValue == null)
+                e.value = value;
+            afterNodeAccess(e);
+            return oldValue;
+        }
+    }
+    ++modCount;
+    if (++size > threshold)
+        resize();
+    afterNodeInsertion(evict);
+    return null;
+}
+```
+
+#### get(Object key)方法
+
+该方法的实现思想为：首先根据key得到hashcode，然后根据hashcode得到该key在数组table的存储位置，接着在该位置寻找key值和hashcode值一致的节点即可，如果没有找到，返回null。
+
+```java
+public V get(Object key) {
+    Node<K,V> e;
+    return (e = getNode(hash(key), key)) == null ? null : e.value;
+}
+final Node<K,V> getNode(int hash, Object key) {
+    Node<K,V>[] tab; Node<K,V> first, e; int n; K k;
+    if ((tab = table) != null && (n = tab.length) > 0 &&(first = tab[(n - 1) & hash]) != null) {
+        //头节点的key的hash与要查找节点的key的hash相同并且地址相同，或者equals()方法判断这两个对象相同
+        if (first.hash == hash && ((k = first.key) == key || (key != null && key.equals(k))))
+            return first;
+        //否则在剩余的节点中找
+        if ((e = first.next) != null) {
+            if (first instanceof TreeNode)
+                return ((TreeNode<K,V>)first).getTreeNode(hash, key);
+            do {
+                if (e.hash == hash &&((k = e.key) == key || (key != null && key.equals(k))))
+                    return e;
+            } while ((e = e.next) != null);
+        }
+    }
+    return null;
+}
+```
+
+#### resize()方法
+
+此方法实现的思想为：1）原table为null的情况，如果为空，则开辟默认大小的空间。2）原table不为空的情况，则开辟原来空间的2倍。由于可能oldCap*2会大于最大容量，因此也对其这种溢出情况进行了处理。
+分配空间之后，将原数组中的元素拷贝到新数组中。
+
+#### V remove(Object key)
+
+```java
+public V remove(Object key) {
+    Node<K,V> e;
+    return (e = removeNode(hash(key), key, null, false, true)) == null ?null : e.value;
+}
+Node<K,V> removeNode(int hash, Object key, Object value, boolean matchValue, boolean movable){
+    Node<K,V>[] tab; Node<K,V> p; int n, index;
+    if ((tab = table) != null && (n = tab.length)>0 &&(p = tab[index = (n - 1) & hash]) != null) {
+        Node<K,V> node = null, e; K k; V v;
+        if (p.hash == hash &&((k = p.key) == key || (key != null && key.equals(k))))
+            node = p;
+        else if ((e = p.next) != null) {
+            if (p instanceof TreeNode)
+                node = ((TreeNode<K,V>)p).getTreeNode(hash, key);
+            else {
+                do {
+                    if (e.hash == hash &&((k = e.key) == key ||(key != null && key.equals(k)))) {
+                        node = e;
+                        break;
+                    }
+                    p = e;
+                } while ((e = e.next) != null);
+            }
+        }
+        if (node != null && (!matchValue || (v = node.value) == value ||(value != null && value.equals(v)))) {
+            if (node instanceof TreeNode)
+                ((TreeNode<K,V>)node).removeTreeNode(this, tab, movable);
+            else if (node == p)
+                tab[index] = node.next;
+            else
+                p.next = node.next;
+            ++modCount;
+            --size;
+            afterNodeRemoval(node);
+            return node;
+        }
+    }
+    return null;
+}
+```
+
+#### boolean containsValue(Object value)
+
+```java
+public boolean containsValue(Object value) {
+    Node<K,V>[] tab; V v;
+    if ((tab = table) != null && size > 0) {
+        for (Node<K,V> e : tab) {
+            for (; e != null; e = e.next) {
+                if ((v = e.value) == value ||(value != null && value.equals(v)))
+                    return true;
+            }
+        }
+    }
+    return false;
+}
+```
+
+### 内部类介绍
+
+#### KeySet
+
+#### Values
+
+#### EntrySet
