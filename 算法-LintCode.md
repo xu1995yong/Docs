@@ -2843,33 +2843,34 @@ public int findMin(int[] nums) {
 	}
 
 ## 376. 二叉树的路径和
-	public List<List<Integer>> binaryTreePathSum(TreeNode root, int target) {
-		List<List<Integer>> result = new ArrayList();
-		if (root == null) {
-			return result;
-		}
-		List<Integer> path = new ArrayList<>();
-		int sum = 0;
-		preOrder(root, target, sum, result, path);
-		return result;
-	}
-	
-	public void preOrder(TreeNode node, int target, int sum, List<List<Integer>> result, List<Integer> path) {
-		if (node == null) {
-			return;
-		}
-		sum += node.val;
-		path.add(node.val);
-		if (node.left == null && node.right == null && sum == target) {
-			result.add(new ArrayList(path));  //一定要新new一个
-		}
-		preOrder(node.left, target, sum, result, path);
-		preOrder(node.right, target, sum, result, path);
-	
-		sum -= node.val;
-		path.remove(path.size() - 1);
-	
-	}
+```java
+public List<List<Integer>> binaryTreePathSum(TreeNode root, int target) {
+    List<List<Integer>> result = new ArrayList();
+    if (root == null) {
+        return result;
+    }
+    List<Integer> path = new ArrayList<>();
+    int sum = 0;
+    preOrder(root, target, sum, result, path);
+    return result;
+}
+
+public void preOrder(TreeNode node, int target, int sum, List<List<Integer>> result, List<Integer> path) {
+    if (node == null) {
+        return;
+    }
+    sum += node.val;
+    path.add(node.val);
+    if (node.left == null && node.right == null && sum == target) {
+        result.add(new ArrayList(path));  //一定要新new一个
+    }
+    preOrder(node.left, target, sum, result, path);
+    preOrder(node.right, target, sum, result, path);
+
+    sum -= node.val;
+    path.remove(path.size() - 1);
+}
+```
 ## 384. 最长无重复字符的子串
 	public int lengthOfLongestSubstring(String s) {
 		Map<Character, Integer> map = new HashMap<Character, Integer>();
