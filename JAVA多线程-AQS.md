@@ -29,10 +29,9 @@ private transient volatile Node tail;//指向等待队列的尾节点
 
 //表示同步状态。在ReentrantLock中，该值表示获取资源的线程重入锁的次数。为0时表示资源没有加锁。
 private volatile int state;
-```
-####  等待队列节点的数据类型
-
-```java
+ 
+ 
+// 等待队列节点的数据类型
 static final class Node {
         static final Node SHARED = new Node(); //共享模式
         static final Node EXCLUSIVE = null;  //独占模式
