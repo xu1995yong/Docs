@@ -13,7 +13,7 @@ AbstractQueuedSynchronizer主要用来构建同步组件。如果需要自定义
 
 ```java
 //独占式锁的获取和释放
-protected boolean tryAcquire(int arg
+protected boolean tryAcquire(int arg)
 protected boolean tryRelease(int arg)
 //共享式锁的获取和释放
 protected int tryAcquireShared(int arg)//共享式获取同步状态，若返回大于等于0的值则表示获取成功，
