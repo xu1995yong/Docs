@@ -26,7 +26,42 @@ Lock writeLock();//获取写锁
 
 ReentrantReadWriteLock类是ReadWriteLock接口的直接实现。ReentrantReadWriteLock类也是通过定义内部类实现AQS框架的API来实现独占/共享的功能。
 
-### ReentrantReadWriteLock的使用
+ReentrantReadWriteLock中有两个静态内部类，分别为ReadLock类和WriteLock类。其中ReadLock类采用共享式同步状态的获取和释放。写锁使用独占式同步状态的获取和释放。
+
+
+
+#### ReentrantReadWriteLock类的特点
+
+1. **锁重入**：
+2.  **锁降级**：同一个线程可以同时拥有写锁与读锁。但必须先获取写锁再获取读锁，先获取写锁再获取读锁的过程称为锁降级。如果先获取读锁再获取写锁，则获取写锁的过程会使当前线程阻塞，即造成所有线程阻塞，从而导致死锁。
+
+
+
+### 实现原理
+
+#### 读写锁计数
+
+
+写锁是独占锁，使用AQS中的status字段的低16位记录独占锁的重入次数。同时AQS可以记录独占锁的所有信息。
+
+读锁是共享锁，使用AQS中的status字段的高16位记录共享锁的重入次数。由于共享锁可以由多个线程可以同时持有，所以必须记录每个持有共享锁的线程及其所持有的共享锁（读锁）的数量。
+
+```java
+//这两个值用来记录第一个获取读锁的线程和该线程持有的该读锁的数量。这两个值的意义是：很多时候，读锁只被一个线程获取，这时候可以单独使用这两个计数值来记录，而不放入readHolds中，从而避免了当只有一个线程操作读锁的时候频繁地在readHolds上读取的问题，提高了效率。
+private transient Thread firstReader;
+private transient int firstReaderHoldCount;
+//HoldCounter类用来记录每个线程持有的读锁数量。
+static final class HoldCounter {
+    int count;         
+    final long tid = LockSupport.getThreadId(Thread.currentThread());
+}
+
+//cachedHoldCounter是一个缓存。很多情况下，一个线程获取读锁之后要更新该线程对应的HoldCounter对象，然后有很大可能在很短的时间内就释放掉读锁，这时候需要再次更新HoldCounter，甚至需要从readHolds中删除（如果重入的读锁都被释放掉的话），需要调用readHolds的get方法，这是有一定开销的。因此，设置cachedHoldCounter作为一个缓存，在某个线程需要这个记录值的时候，先检查cachedHoldCounter对应的线程是否是这个线程自己，如果不是的话，再熊readHolds中取出来，这提高了效率。
+private transient HoldCounter cachedHoldCounter;
+
+//使用ThreadLocal记录每个线程所持有的共享锁（读锁）的数量。
+private transient ThreadLocalHoldCounter readHolds;
+```
 
 #### 构造函数
 
@@ -38,10 +73,6 @@ public ReentrantReadWriteLock(boolean fair) {
 }
 ```
 
-### ReentrantReadWriteLock类的实现原理
-
-ReentrantReadWriteLock中有两个静态内部类，分别为ReadLock类和WriteLock类。其中ReadLock类采用共享式同步状态的获取和释放。写锁使用独占式同步状态的获取和释放。
-
 #### 读锁的获取
 
 ##### tryAcquireShared(int unused)方法
@@ -50,26 +81,61 @@ ReentrantReadWriteLock中有两个静态内部类，分别为ReadLock类和Write
 protected final int tryAcquireShared(int unused) {
     Thread current = Thread.currentThread();
     int c = getState();
+    //如果写锁被其他线程获取，直接返回-1
     if (exclusiveCount(c) != 0 && getExclusiveOwnerThread() != current)
         return -1;
     int r = sharedCount(c);
+    //如果获取读锁不需要等待，且CAS式获取读锁成功
     if (!readerShouldBlock() && r < MAX_COUNT && compareAndSetState(c, c + SHARED_UNIT)) {
-        if (r == 0) {
+        if (r == 0) { //如果读锁还没有被获取过
             firstReader = current;
             firstReaderHoldCount = 1;
-        } else if (firstReader == current) {
+        } else if (firstReader == current) { //如果读锁已被获取过，且第一个获取读锁的线程是当前线程
             firstReaderHoldCount++;
-        } else {
+        } else {//如果读锁已被获取过，且第一个获取读锁的线程不是当前线程
             HoldCounter rh = cachedHoldCounter;
             if (rh == null || rh.tid != LockSupport.getThreadId(current))
-                cachedHoldCounter = rh = readHolds.get();
+                cachedHoldCounter = rh = readHolds.get();//获取当前线程对应的HoldCounter
             else if (rh.count == 0)
                 readHolds.set(rh);
             rh.count++;
         }
         return 1;
     }
-    return fullTryAcquireShared(current);
+    return fullTryAcquireShared(current);//如果获取读锁需要等待，或CAS式获取读锁失败
+}
+```
+
+##### readerShouldBlock()方法
+
+```java
+//在公平锁中，如果AQS等待队列中存在未取消的节点，则当前获取读锁的线程应该阻塞
+final boolean readerShouldBlock() {
+    return hasQueuedPredecessors();
+}
+public final boolean hasQueuedPredecessors() {
+    Node h, s;
+    if ((h = head) != null) {
+        if ((s = h.next) == null || s.waitStatus > 0) {
+            s = null; // traverse in case of concurrent cancellation
+            for (Node p = tail; p != h && p != null; p = p.prev) {
+                if (p.waitStatus <= 0)
+                    s = p;
+            }
+        }
+        if (s != null && s.thread != Thread.currentThread())
+            return true;
+    }
+    return false;
+}
+
+//在非公平锁中，如果AQS等待队列中head 的后继节点在等待写锁，则当前获取读锁的线程应该阻塞，避免写锁饥饿。
+final boolean readerShouldBlock() {
+    return apparentlyFirstQueuedIsExclusive();
+}
+final boolean apparentlyFirstQueuedIsExclusive() {
+    Node h, s;
+    return (h = head) != null && (s = h.next)  != null && !s.isShared() && s.thread != null;
 }
 ```
 
@@ -77,41 +143,40 @@ protected final int tryAcquireShared(int unused) {
 
 ```java
 final int fullTryAcquireShared(Thread current) {
-    /*
-             * This code is in part redundant with that in
-             * tryAcquireShared but is simpler overall by not
-             * complicating tryAcquireShared with interactions between
-             * retries and lazily reading hold counts.
-             */
     HoldCounter rh = null;
     for (;;) {
         int c = getState();
         if (exclusiveCount(c) != 0) {
             if (getExclusiveOwnerThread() != current)
                 return -1;
-            // else we hold the exclusive lock; blocking here
-            // would cause deadlock.
-        } else if (readerShouldBlock()) {
-            // Make sure we're not acquiring read lock reentrantly
-            if (firstReader == current) {
+        } 
+        /**
+        如果readerShouldBlock()为真，则通过当前线程是否获取过该读锁，来进一步判断当前线程是否要等待。
+        1. 如果当前线程从未获取过该读锁，则将当前线程添加到AQS等待队列中排序。
+        2. 如果当前线程获取过该读锁，即此次获取是一次重入，此时如果将当前线程添加到AQS等待队列，就会使当前线程阻塞，从而造成死锁。所以这种情况下只能通过死循环的方式争夺锁。
+        **/
+        else if (readerShouldBlock()) {
+            //如果第一个获取读锁的线程是当前线程，即此次获取读锁是当前线程对读锁的一次重入
+            if (firstReader == current) {  
                 // assert firstReaderHoldCount > 0;
-            } else {
+            } else {  //如果第一个获取读锁的线程不是当前线程
                 if (rh == null) {
                     rh = cachedHoldCounter;
                     if (rh == null || rh.tid != LockSupport.getThreadId(current)) {
-                        rh = readHolds.get();
+                        rh = readHolds.get();//获取当前线程对应的HoldCounter
                         if (rh.count == 0)
                             readHolds.remove();
                     }
                 }
+                //如果rh.count==0，说明当前线程从未获取过读锁。否则说明当前线程获取过读锁
                 if (rh.count == 0)
-                    return -1;
+                    return -1; 
             }
         }
         if (sharedCount(c) == MAX_COUNT)
             throw new Error("Maximum lock count exceeded");
-        if (compareAndSetState(c, c + SHARED_UNIT)) {
-            if (sharedCount(c) == 0) {
+        if (compareAndSetState(c, c + SHARED_UNIT)) {//CAS式获取锁，如果不成功则“死循环式”自旋
+            if (sharedCount(c) == 0) {//如果还没有线程获取过读锁
                 firstReader = current;
                 firstReaderHoldCount = 1;
             } else if (firstReader == current) {
@@ -119,9 +184,8 @@ final int fullTryAcquireShared(Thread current) {
             } else {
                 if (rh == null)
                     rh = cachedHoldCounter;
-                if (rh == null ||
-                    rh.tid != LockSupport.getThreadId(current))
-                    rh = readHolds.get();
+                if (rh == null || rh.tid != LockSupport.getThreadId(current))
+                    rh = readHolds.get();//从readHolds中取出该线程对应的HoldCounter
                 else if (rh.count == 0)
                     readHolds.set(rh);
                 rh.count++;
@@ -133,17 +197,112 @@ final int fullTryAcquireShared(Thread current) {
 }
 ```
 
+#### 读锁的释放
 
+##### tryReleaseShared(int unused)方法
 
-##### 读锁的释放
+```java
+protected final boolean tryReleaseShared(int unused) {
+    Thread current = Thread.currentThread();
+    if (firstReader == current) {
+        if (firstReaderHoldCount == 1)
+            firstReader = null;
+        else
+            firstReaderHoldCount--;
+    } else {
+        HoldCounter rh = cachedHoldCounter;
+        //如果cachedHoldCounter没有缓存HoldCounter，或者缓存的不是当前线程的HoldCounter
+        if (rh == null || rh.tid != LockSupport.getThreadId(current))
+            rh = readHolds.get();//获取当前线程的HoldCounter
+        int count = rh.count;
+        if (count <= 1) {
+            readHolds.remove();//删除是为了防止内存泄漏。因为当前线程已经不再持有读锁
+            if (count <= 0)
+                throw unmatchedUnlockException();
+        }
+        --rh.count;
+    }
+    for (;;) {
+        int c = getState();
+        int nextc = c - SHARED_UNIT;
+        if (compareAndSetState(c, nextc))
+            //如果 nextc == 0，即 state 全部32位都为0，则说明当前资源读、写锁均不存在，此时需要唤醒AQS等待队列中获取写锁的线程。
+            return nextc == 0;
+    }
+}
+```
 
+#### 写锁的获取
 
+##### tryAcquire(int acquires)方法
 
-写锁的获取
+```java
+protected final boolean tryAcquire(int acquires) {
+    Thread current = Thread.currentThread();
+    int c = getState();
+    int w = exclusiveCount(c);
+    if (c != 0) {
+        //如果 c != 0 且 w == 0 说明存在读锁。此时直接返回false
+        if (w == 0 || current != getExclusiveOwnerThread())
+            return false;
+        if (w + exclusiveCount(acquires) > MAX_COUNT)
+            throw new Error("Maximum lock count exceeded");
+        //c != 0 && w ！= 0 && current == getExclusiveOwnerThread() 即该次是写锁重入
+        setState(c + acquires);
+        return true;
+    }
+    //如果当前线程获取写锁应该阻塞，或者竞争锁失败，则返回false
+    if (writerShouldBlock() ||  !compareAndSetState(c, c + acquires))
+        return false;
+    setExclusiveOwnerThread(current);
+    return true;
+}
+```
 
+##### writerShouldBlock()方法
 
+```java
+//公平锁中，如果AQS等待队列中存在未取消的节点，则当前获取写锁的线程应该阻塞
+final boolean writerShouldBlock() {
+    return hasQueuedPredecessors();
+}
+public final boolean hasQueuedPredecessors() {
+    Node h, s;
+    if ((h = head) != null) {
+        if ((s = h.next) == null || s.waitStatus > 0) {
+            s = null; // traverse in case of concurrent cancellation
+            for (Node p = tail; p != h && p != null; p = p.prev) {
+                if (p.waitStatus <= 0)
+                    s = p;
+            }
+        }
+        if (s != null && s.thread != Thread.currentThread())
+            return true;
+    }
+    return false;
+}
+//非公平锁中，
+final boolean writerShouldBlock() {
+    return false; // writers can always barge
+}
+```
 
-写锁的释放
+#### 写锁的释放
+
+##### tryRelease(int releases)方法
+
+```java
+protected final boolean tryRelease(int releases) {
+    if (!isHeldExclusively()) //如果获取独占锁的线程不是当前线程
+        throw new IllegalMonitorStateException();
+    int nextc = getState() - releases;
+    boolean free = exclusiveCount(nextc) == 0;
+    if (free)
+        setExclusiveOwnerThread(null);
+    setState(nextc);
+    return free;//如果独占计数等于0，说明该写锁释放完全，则需要唤醒AQS队列中的节点。
+}
+```
 
 
 
