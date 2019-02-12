@@ -14,13 +14,6 @@
     3. 其他阻塞：运行(running)的线程执行Thread.sleep(long ms)或t.join()方法，或者发出了I/O请求时，JVM会把该线程置为阻塞状态。当sleep()状态超时、join()等待线程终止或者超时、或者I/O处理完毕时，线程重新转入可运行(runnable)状态。
 5. 死亡(DEAD)：线程run()、main() 方法执行结束，或者因异常退出了run()方法，则该线程结束生命周期。死亡的线程不可再次复生。    
 
-### Thread类常用API
-
-1.	currentThread():返回正在调用该段代码的进程的信息。
-2.	isAlive()
-3.	sleep()
-4.	getId()
-5.	public static void yield()
 
 ### 停止线程
 
