@@ -58,14 +58,13 @@ PushConsumer中通过“长轮询”方式达到Push效果，长轮询方式既�
 
 ## Example
 1. Add Dependency    
-
-	
-	<dependency>
-   ​     <groupId>org.apache.rocketmq</groupId>
-   ​     <artifactId>rocketmq-client</artifactId>
-   ​     <version>4.3.0</version>
-    </dependency>
-
+```xml
+<dependency>
+    <groupId>org.apache.rocketmq</groupId>
+    <artifactId>rocketmq-client</artifactId>
+    <version>4.3.0</version>
+</dependency>
+```
 2.1 Send Messages Synchronously
 
 	public class SyncProducer {
@@ -84,26 +83,28 @@ PushConsumer中通过“长轮询”方式达到Push效果，长轮询方式既�
 
 2.2 Send Messages Asynchronously
 
-	public class AsyncProducer {
-	    public static void main(String[] args) throws Exception {
-	        DefaultMQProducer producer = new DefaultMQProducer("please_rename_unique_group_name"); 
-	        producer.setNamesrvAddr("localhost:9876");
-	        producer.start();
-	        producer.setRetryTimesWhenSendAsyncFailed(0);
-	        Message msg = new Message("TopicTest","TagA","OrderID188","Hello world".getBytes(RemotingHelper.DEFAULT_CHARSET));
-	        producer.send(msg, new SendCallback() {
-	            @Override
-	            public void onSuccess(SendResult sendResult) {
-	                 System.out.printf(sendResult);
-	            }
-	            @Override
-	            public void onException(Throwable e) {
-	                 e.printStackTrace();
-	            }
-	        });
-	        producer.shutdown();
-	    }
-	}
+```java
+public class AsyncProducer {
+    public static void main(String[] args) throws Exception {
+        DefaultMQProducer producer = new DefaultMQProducer("please_rename_unique_group_name"); 
+        producer.setNamesrvAddr("localhost:9876");
+        producer.start();
+        producer.setRetryTimesWhenSendAsyncFailed(0);
+        Message msg = new Message("TopicTest","TagA","OrderID188","Hello world".getBytes(RemotingHelper.DEFAULT_CHARSET));
+        producer.send(msg, new SendCallback() {
+            @Override
+            public void onSuccess(SendResult sendResult) {
+                System.out.printf(sendResult);
+            }
+            @Override
+            public void onException(Throwable e) {
+                e.printStackTrace();
+            }
+        });
+        producer.shutdown();
+    }
+}
+```
 
 3.1 Consume Messages
 
@@ -127,7 +128,7 @@ PushConsumer中通过“长轮询”方式达到Push效果，长轮询方式既�
 	        System.out.printf("Consumer Started.%n");
 	    }
 	}
- ```
+```
 
 ## 有序消息
 
@@ -141,17 +142,19 @@ PushConsumer中通过“长轮询”方式达到Push效果，长轮询方式既�
 ### 2. 局部消息有序
 发送端：只能选择同步发送（异步发送在发送失败时无法保证消息顺序），并且把同一个业务id（orderId）的消息发送到同一个Message Queue。这样每个Message Queue中的消息是有序的。
 
-	for (int i = 0; i < 100; i++) {
-			Integer orderId = i % 10;
-			Message msg = new Message("OrderedMessage", "*",String.valueOf(i).getBytes(RemotingHelper.DEFAULT_CHARSET));
-			SendResult sendResult = producer.send(msg, new MessageQueueSelector() {
-				public MessageQueue select(List<MessageQueue> mqs, Message msg, Object arg) //arg就是传入的orderId {
-					Integer id = (Integer) arg;
-					int index = id % mqs.size();
-					return mqs.get(index);
-				}
-			}, orderId);
-	}
+```java
+for (int i = 0; i < 100; i++) {
+    Integer orderId = i % 10;
+    Message msg = new 	Message("OrderedMessage","*",String.valueOf(i).getBytes(RemotingHelper.DEFAULT_CHARSET));
+    SendResult sendResult = producer.send(msg, new MessageQueueSelector() {
+        public MessageQueue select(List<MessageQueue> mqs, Message msg, Object arg) //arg就是传入的orderId {
+            Integer id = (Integer) arg;
+        int index = id % mqs.size();
+        return mqs.get(index);
+    }
+                                          }, orderId);
+}
+```
 
 消费端：使用MessageListenerOrderly类保证同一个Message Queue读取的消息不被并发处理。在MessageListenerOrderly的实现中，为每个Consumer Queue加个锁，消费消息前，都需要先获得这个消息对应的Consumer Queue上的锁。这样保证了同一时间，同一个Consumer Queue的消息只被一个线程消费，而不同Consumer Queue上的消息可以并发处理。
 

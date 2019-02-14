@@ -416,24 +416,27 @@ private static <T> void siftDownComparable(int k, T x, Object[] es, int n) {
 
 ### 总体介绍
 
-HashSet和HashMap有相同的实现，前者仅仅是对后者做了一层包装，即**HashSet里有一个HashMap（适配器模式）**。
+HashSet和HashMap有相同的实现，前者仅仅是对后者做了一层包装，即HashSet里有一个HashMap（适配器模式）。
 
-- HashMap内部的数据类型为数组加链表的方式，其中数组中存放的是链表的头节点的指针。HashMap内部采用链地址法解决Hash冲突问题。
+- **HashMap中的数据类型为数组 + 链表 +红黑树。**其中数组中存放链表头节点的指针。当链表长度大于等于8时，链表会转化为红黑树。
 - HashMap*实现了*Map接口，允许放入`key`为`null`的元素，也允许插入`value`为`null`的元素
-- HashMap未实现同步。
+- HashMap不保证线程安全。
 - HashMap不保证元素顺序，根据需要该容器可能会对元素重新哈希，元素的顺序也会被重新打散。
 
-对于HashMap，有两个参数可以影响其性能：初始容量（inital capacity）和负载系数（load factor）。初始容量指定了初始`table`的大小，负载系数用来指定自动扩容的临界值。当`entry`的数量超过`capacity*load_factor`时，容器将自动扩容并重新哈希。HashMap中默认load_factor为0.75。
-
 将对象放入到*HashMap*或*HashSet*中时，有两个方法需要特别关心：`hashCode()`和`equals()`。**`hashCode()`方法决定了对象会被放到哪个`bucket`里，当多个对象的哈希值冲突时，`equals()`方法决定了这些对象是否是“同一个对象”**。所以，如果要将自定义的对象放入到`HashMap`或`HashSet`中，需要重写key对象的`hashCode()`和`equals()`方法。**在比较时，先比较key的hash和key的地址是否相同，再使用equals()方法比较两个key对象是否相同**。
+
+### 重要字段
+
+```java
+static final int DEFAULT_INITIAL_CAPACITY = 1 << 4; //table的默认初始容量，当未指定初始容量时使用。
+static final float DEFAULT_LOAD_FACTOR = 0.75f;
+Node<K,V>[] table;
+int size;
+```
 
 ### 方法剖析
 
 #### put(K key, V value)方法
-
-此方法的思想为：首先根据key得到hashcode，根据hashcode得到要存储的位置i=hash&(n-1),其中n为数组的长度(只有n为2的幂次方时，这句话才与hash%n等价，这就解释了为什么了HashMap的容量必须为2的幂次方)。
-
-得到存储位置i之后，检查此位置是否已经有元素，如果没有，则直接存储在该位置即可，如果有，则在位置的所有节点中遍历是否含有该key，如果已经有了该key，则更新其value即可，如果没有该key，则在该链表的末尾加入该新节点即可。
 
 ```java
 public V put(K key, V value) {
@@ -460,11 +463,12 @@ final V putVal(int hash, K key, V value, boolean onlyIfAbsent,boolean evict) {
                 //如果e指向null，说明链表中找不到相等的key，则新创建节点，插入到链表的最后。
                 if ((e = p.next) == null) {
                     p.next = newNode(hash, key, value, null);
+                    //如果新插入节点后链表数量 >=8，则将链表转化为红黑树
                     if (binCount >= TREEIFY_THRESHOLD - 1)
                         treeifyBin(tab, hash);
                     break;
                 }
-                //如果e指向的节点的key与要插入的key相等，则跳出循环。
+                //如果链表中找到了与要插入的key相等的节点，则跳出循环。
                 if (e.hash == hash &&((k = e.key) == key || (key != null && key.equals(k))))
                     break;
                 p = e;
@@ -581,10 +585,4 @@ public boolean containsValue(Object value) {
 }
 ```
 
-### 内部类介绍
-
-#### KeySet
-
-#### Values
-
-#### EntrySet
+### HashMap的线程安全问题
