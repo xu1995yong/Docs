@@ -1,4 +1,4 @@
-# 线程同步工具
+# 线程同步工具类
 
 ## CountDownLatch
 

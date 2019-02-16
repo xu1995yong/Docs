@@ -568,21 +568,65 @@ Node<K,V> removeNode(int hash, Object key, Object value, boolean matchValue, boo
 }
 ```
 
-#### boolean containsValue(Object value)
+### HashMap的线程安全问题
+
+1. 在JDK1.7中，在多线程下HashMap的transfer()方法在转移链表的过程中，由于采用头插法创建链表，会形成环形链表，这样在调用get()方法获取元素的时候，会造成死循环的问题。但是在JDK1.8中采用尾插法修复了这个问题。
+2. 在JDK1.8中，在多线程下向hashmap插入元素时，还是会造成数据丢失的问题。
+
+## TreeSet and TreeMap
+
+### 总体介绍
+
+### 红黑树介绍
+
+#### 红黑树的由来
+
+为了改善二叉树中节点的查找效率，提出二叉查找树。二叉查找树需满足如下条件：
+
+1. 若左子树不空，则左子树上所有结点的值均小于它的根结点的值；
+2. 若右子树不空，则右子树上所有结点的值均大于或等于它的根结点的值；
+3. 左、右子树也分别为二叉排序树。
+
+由于二叉查找树存在极端情况（即如果要插入的多个元素间是有序的，生成的二叉排序树成为一个链表），破坏了二叉查找树的效率。于是提出了红黑树。
+
+#### 红黑树的定义
+
+红黑树是一种自平衡的二叉查找树。红黑树除满足二叉查找树的要求外，还需要满足以下条件：
+1. 每个节点的颜色必须是红色或黑色。
+2. 根节点的颜色是黑色。
+3. 所有NIL节点都是黑色节点。
+4. 每个红色节点的子节点必须是黑色节点。（从每个NIL节点到根节点的所有路径上不能有两个连续的红色节点。）
+5. 从任一节点到其每个叶子节点的所有路径都必须包含相同数目的黑色节点（简称黑高度）。
+
+![img](https://img-my.csdn.net/uploads/201212/12/1355319681_6107.png)
+
+红黑树是接近平衡的二叉树，因为**红黑树的特殊性质保证了从根节点到NIL节点的最长的可能路径不会多于最短的可能路径的两倍长**。原因如下：
+
+当某条路径最短时，这条路径必然都是由黑色节点构成。当某条路径长度最长时，这条路径必然是由红色和黑色节点相间构成（性质4限定了不能出现两个连续的红色节点）。而性质5又限定了从任一节点到其每个叶子节点的所有路径必须包含相同数量的黑色节点。此时，在路径最长的情况下，路径上红色节点数量 = 黑色节点数量。该路径长度为两倍黑色节点数量，也就是最短路径长度的2倍。
+
+#### 红黑树的修正操作
+
+##### 左旋
+
+##### 右旋
+
+##### 节点颜色变换
+
+
+
+#### 红黑树的优点
+
+#### 节点的类型
 
 ```java
-public boolean containsValue(Object value) {
-    Node<K,V>[] tab; V v;
-    if ((tab = table) != null && size > 0) {
-        for (Node<K,V> e : tab) {
-            for (; e != null; e = e.next) {
-                if ((v = e.value) == value ||(value != null && value.equals(v)))
-                    return true;
-            }
-        }
-    }
-    return false;
+static final class Entry<K,V> implements Map.Entry<K,V> {
+    K key;
+    V value;
+    Entry<K,V> left;
+    Entry<K,V> right;
+    Entry<K,V> parent;
+    boolean color = BLACK; //该节点的颜色
 }
+private static final boolean RED   = false;
+private static final boolean BLACK = true;
 ```
-
-### HashMap的线程安全问题
