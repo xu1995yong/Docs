@@ -16,7 +16,7 @@ AbstractQueuedSynchronizer主要用来构建同步组件。如果需要自定义
 protected boolean tryAcquire(int arg)
 protected boolean tryRelease(int arg)
 //共享式锁的获取和释放
-protected int tryAcquireShared(int arg)//共享式获取同步状态，若返回大于等于0的值则表示获取成功，
+protected int tryAcquireShared(int arg)//共享式获取同步状态，返回值大于等于0时表示获取成功，
 protected boolean tryReleaseShared(int arg)
 //表示同步器是否被当前线程在独占模式下使用。此方法仅在ConditionObject方法内部调用。
 protected boolean isHeldExclusively()
@@ -66,7 +66,7 @@ static final class Node {
 
 思想：首先调用tryAcquire()尝试获取资源，如果不成功，则将当前线程包装为一个独占模式节点，然后以CAS的方式尝试将该节点添加到等待队列的尾部。如果失败，则以死循环+ CAS的方式，保证节点可以正确添加到等待队列中。
 
-添加成功后，当前线程会判断自己在等待队列中的位置。如果当前线程的前驱节点是头节点时，则再次尝试获取资源。否则会以CSA的方式将前驱节点的状态置为SIGNAL，保证前驱节点释放资源后会唤醒当前线程，然后当前线程调用LockSupport.park(this)阻塞自己。
+添加成功后，当前线程会判断自己在等待队列中的位置。如果当前线程的前驱节点是头节点时，则再次尝试获取资源。如果获取成功，将自己置为等待队列的头节点。如果获取失败，则以CSA的方式将前驱节点的状态置为SIGNAL，保证前驱节点释放资源后会唤醒当前线程，然后当前线程调用LockSupport.park(this)阻塞自己。
 
 #### acquire(int arg)方法
 
@@ -227,11 +227,13 @@ private void unparkSuccessor(Node node) {
 
 ### 共享式同步状态的获取
 
+思想：首先调用tryAcquireShared()获取资源，如果获取失败，则将当前节点包装为共享模式节点，并添加到等待队列的队尾。添加成功后，当前线程会判断自己在等待队列中的位置，如果当前线程的前驱节点是头节点，则再次尝试获取资源。如果获取资源成功，则将自己置为头节点，此时如果其后继节点也为共享节点，则继续向后唤醒节点（后继节点被唤醒后也会再次尝试获取资源。如果获取资源成功，则将自己置为头节点并继续向后唤醒节点。这样就完成了所有共享节点的唤醒）。如果获取失败则同上。
+
 #### acquireShared(int arg)方法
 
 ```java
 public final void acquireShared(int arg) {
-    if (tryAcquireShared(arg) < 0)
+    if (tryAcquireShared(arg) < 0)//返回值小于零，说明获取失败
         doAcquireShared(arg);
 }
 ```
@@ -271,7 +273,6 @@ private void doAcquireShared(int arg) {
             cancelAcquire(node);
     }
 }
-
 ```
 #### setHeadAndPropagate(Node node, int propagate)方法
 
@@ -311,6 +312,8 @@ private void doReleaseShared() {
 }
 ```
 ### 共享式同步状态的释放
+
+思想：首先调用tryReleaseShared()，如果返回真，则唤醒后继节点。
 
 #### releaseShared(int arg)方法
 
