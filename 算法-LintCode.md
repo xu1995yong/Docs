@@ -541,74 +541,80 @@ public String minWindow(String source, String target) {
 
 ## 35.原地翻转全部链表
 
-	public ListNode reverse(ListNode head) {
-	    if (head == null){
-	        return null;
-		}
-		ListNode p = head;
-	    ListNode pNext = head.next;
-	    while (pNext != null) {
-	        ListNode pNextNext = pNext.next;
-	        pNext.next = p;
-	        p = pNext;
-	        pNext = pNextNext;
-	    }
-	    head.next = null;
-	    return p;
-	}
+```java
+public ListNode reverse(ListNode head) {
+    if(head == null){
+        return null;
+    }
+    ListNode pre = null;
+    ListNode next = null;
+
+    while(head != null){    
+        next = head.next;
+        head.next = pre;  
+        pre = head;
+        head = next;
+    }
+    return pre;
+}
+```
 
 
 ## 36.翻转链表中第m个节点到第n个节点的部分
 
-	public ListNode reverseBetween(ListNode head, int m, int n) {
-	    ListNode p = head;
-	    if (p == null)
-	        return null;
-	    int count = 1;
-	    ListNode pAhead = p;
-	    while (count < m) {
-	        pAhead = p;
-	        p = p.next;
-	        count++;
-	    }
-	    ListNode pNext = p.next;
-	    while (pNext != null && count < n) {
-	        ListNode pNextNext = pNext.next;
-	        pNext.next = p;
-	        p = pNext;
-	        pNext = pNextNext;
-	
-	        count++;
-	    }
-	    if (m == 1) {
-	        head.next = pNext;
-	        return p;
-	    }
-	    pAhead.next.next = pNext;
-	    pAhead.next = p;
-	    return head;
-	}
+```java
+public ListNode reverseBetween(ListNode head, int m, int n) {
+    ListNode p = head;
+    if (p == null)
+        return null;
+    int count = 1;
+    ListNode pAhead = p;
+    while (count < m) {
+        pAhead = p;
+        p = p.next;
+        count++;
+    }
+    ListNode pNext = p.next;
+    while (pNext != null && count < n) {
+        ListNode pNextNext = pNext.next;
+        pNext.next = p;
+        p = pNext;
+        pNext = pNextNext;
+
+        count++;
+    }
+    if (m == 1) {
+        head.next = pNext;
+        return p;
+    }
+    pAhead.next.next = pNext;
+    pAhead.next = p;
+    return head;
+}
+```
 ## 37.PASS
 ## 38.搜索二维矩阵 II
-	public int searchMatrix(int[][] matrix, int target) {
-		int row = matrix.length - 1;
-		int column = 0;
-		int ans = 0;
-		while (row >= 0 && column < matrix[0].length) {
-			if (target == matrix[row][column]) {
-				ans++;
-				row--;
-				column++;
-				continue;
-			}
-			if (target < matrix[row][column]) {
-				row--;
-			} else {
-				column++;
-			}
-		}
-		return ans;
-	}
+```java
+public int searchMatrix(int[][] matrix, int target) {
+    int row = matrix.length - 1;
+    int column = 0;
+    int ans = 0;
+    while (row >= 0 && column < matrix[0].length) {
+        if (target == matrix[row][column]) {
+            ans++;
+            row--;
+            column++;
+            continue;
+        }
+        if (target < matrix[row][column]) {
+            row--;
+        } else {
+            column++;
+        }
+    }
+    return ans;
+}
+```
 
 ## 39.恢复旋转排序数组
 
@@ -775,57 +781,59 @@ public int maxDiffSubArrays(int[] nums) {
 
 ## 46. 主元素
 
-	public int majorityNumber(List<Integer> nums) {
-	        int currentMajor = 0;
-	        int count = 0;
-	        for(Integer num : nums) {
-	            if(count == 0) {
-	                currentMajor = num;
-	            }
-	            
-	            if(num == currentMajor) {
-	                count++;
-	            } else {
-	                count;
-	            }
-	        }
-	        
-	        return currentMajor;
-	}
+```java
+public int majorityNumber(List<Integer> nums) {
+    int currentMajor = 0;
+    int count = 0;
+    for(Integer num : nums) {
+        if(count == 0) {
+            currentMajor = num;
+        }
+        if(num == currentMajor) {
+            count++;
+        } else {
+            count--;
+        }
+    }
+    return currentMajor;
+}
+```
 
 ## 47. 主元素Ⅱ
 
-	public int majorityNumber(List<Integer> nums) {
-	    int majorityNumber1 = 0;
-	    int majorityNumber2 = 0;
-	    int count1 = 0;
-	    int count2 = 0;
-	    for (int i = 0; i < nums.size(); i++) {
-	        if (majorityNumber1 == nums.get(i)) {
-	            count1++;
-	        } else if (majorityNumber2 == nums.get(i)) {
-	            count2++;
-	        } else if (count1 == 0) {
-	            majorityNumber1 = nums.get(i);
-	            count1++;
-	        } else if (count2 == 0) {
-	            majorityNumber2 = nums.get(i);
-	            count2++;
-	        } else {
-	            count1;
-	            count2;
-	        }
-	    }
-	    count1 = count2 = 0;
-	    for (int i = 0; i < nums.size(); i++) {
-	        if (majorityNumber1 == nums.get(i)) {
-	            count1++;
-	        } else if (majorityNumber2 == nums.get(i)) {
-	            count2++;
-	        }
-	    }
-	    return count1 > count2 ? majorityNumber1 : majorityNumber2;
-	}
+```java
+public int majorityNumber(List<Integer> nums) {
+    int majorityNumber1 = 0;
+    int majorityNumber2 = 0;
+    int count1 = 0;
+    int count2 = 0;
+    for (int i = 0; i < nums.size(); i++) {
+        if (majorityNumber1 == nums.get(i)) {
+            count1++;
+        } else if (majorityNumber2 == nums.get(i)) {
+            count2++;
+        } else if (count1 == 0) {
+            majorityNumber1 = nums.get(i);
+            count1++;
+        } else if (count2 == 0) {
+            majorityNumber2 = nums.get(i);
+            count2++;
+        } else {
+            count1--;
+            count2--;
+        }
+    }
+    count1 = count2 = 0;
+    for (int i = 0; i < nums.size(); i++) {
+        if (majorityNumber1 == nums.get(i)) {
+            count1++;
+        } else if (majorityNumber2 == nums.get(i)) {
+            count2++;
+        }
+    }
+    return count1 > count2 ? majorityNumber1 : majorityNumber2;
+}
+```
 
 ## 48.
 ## 49.字符大小写排序
