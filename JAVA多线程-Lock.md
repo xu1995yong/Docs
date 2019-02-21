@@ -129,8 +129,6 @@ protected final boolean tryRelease(int releases) {
 
 ### 总体介绍
 
-**ReadWriteLock接口提供了获取读锁和写锁的方法。 **
-
 读写锁是一对相关的锁，读锁用于只读操作，写锁用于写入操作。读锁可以由多个线程同时保持，而写锁是独占的，只能由一个线程获取。
 
 由于读写锁本身的实现就远比独占锁复杂，因此，读写锁比较适用于以下情形：
@@ -183,7 +181,10 @@ static final class HoldCounter {
     final long tid = LockSupport.getThreadId(Thread.currentThread());
 }
 
-//cachedHoldCounter是一个缓存。很多情况下，一个线程获取读锁之后要更新该线程对应的HoldCounter对象，然后有很大可能在很短的时间内就释放掉读锁，这时候需要再次更新HoldCounter，甚至需要从readHolds中删除（如果重入的读锁都被释放掉的话），需要调用readHolds的get方法，这是有一定开销的。因此，设置cachedHoldCounter作为一个缓存，在某个线程需要这个记录值的时候，先检查cachedHoldCounter对应的线程是否是这个线程自己，如果不是的话，再熊readHolds中取出来，这提高了效率。
+//cachedHoldCounter是一个缓存。很多情况下，一个线程获取读锁之后要更新该线程对应的HoldCounter对象，然后有
+//很大可能在很短的时间内就释放掉读锁，这时候需要再次更新HoldCounter，甚至需要从readHolds中删除（如果重入的
+//读锁都被释放掉的话），需要调用readHolds的get方法，这是有一定开销的。因此，设置cachedHoldCounter作为一个
+//缓存，在某个线程需要这个记录值的时候，先检查cachedHoldCounter对应的线程是否是这个线程自己，如果不是再从readHolds中取出来，这提高了效率。
 private transient HoldCounter cachedHoldCounter;
 
 //使用ThreadLocal记录每个线程所持有的共享锁（读锁）的数量。
