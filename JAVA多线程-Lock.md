@@ -354,7 +354,8 @@ protected final boolean tryReleaseShared(int unused) {
         int c = getState();
         int nextc = c - SHARED_UNIT;
         if (compareAndSetState(c, nextc))
-            //如果 nextc == 0，即 state 全部32位都为0，则说明当前资源读、写锁均不存在，此时需要唤醒AQS等待队列中获取写锁的线程。
+            //如果 nextc == 0，即 state 全部32位都为0，则说明当前资源读、写锁均不存在，此时需要唤醒AQS
+            //等待队列中获取写锁的线程。
             return nextc == 0;
     }
 }

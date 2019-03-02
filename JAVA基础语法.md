@@ -77,9 +77,71 @@ Java的异常(包括Exception和Error)分为可查的异常（checked exceptions
 
 
 
-## 静态绑定、动态绑定
-
-
-
 ## Java中的反射机制
 
+反射：指在程序运行时，根据类的全限定名动态的获取类的Class对象，并通过Class对象实现对该类的各种操作的过程。
+
+其中Class对象是在该类的加载过程中的加载阶段，由类加载器创建的，且Class对象保存在堆中。
+
+### 示例
+
+```java
+public static void main(String[] args){
+    Class<People> clazz = (Class<People>) Class.forName("com.xu.People", false, 					ClassLoader.getSystemClassLoader()); 
+
+    Constructor<People> ctor = clazz.getConstructor(String.class);
+    People people = ctor.newInstance("zhang");
+    System.out.println(people);
+}
+```
+
+
+
+### 常用方法
+
+```java
+//使用给定的类加载器, 根据类的全限定名获取该类的class对象
+public static Class<?> forName(String name, boolean initialize,ClassLoader loader);
+//返回该Class对象所代表的类的所有公共构造方法
+public Constructor<?>[] getConstructors();
+//返回该Class对象所代表的类的指定参数类型的构造方法，后续可以调用该构造方法对象的newInstance()方法创建该类的实例
+public Constructor<T> getConstructor(Class<?>... parameterTypes);
+//返回该Class对象所代表的类的所有公共字段，包括从父类中继承的
+public Field[] getFields()；
+//返回该Class对象所代表的类的所有声明的字段，包括public,protected,default，private。不包括从父类中继承的
+public Field[] getDeclaredFields();
+//返回该Class对象所代表的类的所有公共方法，包括从父类中继承或接口中实现的
+public Method[] getMethods();
+//返回该Class对象所代表的类的所有声明的方法，包括public,protected,default，private。不包括从父类中继承的
+public Method[] getDeclaredMethods();
+//返回该Class对象所代表的类的指定名称及参数类型的特定方法
+public Method getDeclaredMethod(String name, Class<?>... parameterTypes)
+```
+
+
+
+
+
+Class类和Class文件的区别与联系
+
+
+
+
+
+
+
+
+
+## String、StringBuffer、StringBuilder
+
+### String
+
+String 是是线程安全的不可变字符串。因为每次对 String 类型变量的修改都是生成新的 String 对象，所以String 是线程安全的。
+
+### StringBuffer
+
+StringBuffer是线程安全的可变字符序列。StringBuffer 所有的方法都用 synchronized 修饰。StringBuffer继承自AbstractStringBuilder类，AbstractStringBuilder底层是byte数组。StringBuffer类的操作都是代理到父类的相应方法。
+
+### StringBuilder
+
+StringBuilder是非线程安全的。StringBuilder也继承自AbstractStringBuilder类，相应的操作都是代理到父类的相应方法。
