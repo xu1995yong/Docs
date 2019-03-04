@@ -69,7 +69,7 @@ TimeUnit unit)
 
 ### 1. 重点参数详解
 
-- corePoolSize（核心线程数）：当有新任务提交到线程池时，如果线程池中的线程数少于 corePoolSize，则即使存在空闲线程能执行该任务，线程池也会创建一个新的线程来执行。等到线程池中的线程数大于corePoolSize时就不再创建新线程，而是将任务保存在BlockingQueue中。
+- corePoolSize（核心线程数）：当有新任务提交到线程池时，如果线程池中的线程数少于 corePoolSize，则即使存在空闲线程，线程池也会创建新线程来执行该任务。当线程池中的线程数大于corePoolSize时就不再创建新线程，而是将任务保存在BlockingQueue中。
 - maximumPoolSize（允许的最大线程数）：如果线程池中的线程数多于 corePoolSize 而少于 maximumPoolSize，且任务队列已经饱和，则线程池会继续创建新线程，直到线程数达到maximumPoolSize。
 - keepAliveTime ：当线程池中的线程数大于corePoolSize时，则大余的线程在空闲时间超过keepAliveTime后将会终止。keepAliveTime提供了当池处于非活动状态时减少资源消耗的方法。
 - BlockingQueue任务队列：用于保存等待执行的任务的阻塞队列。
