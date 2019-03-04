@@ -128,6 +128,109 @@ Class类和Class文件的区别与联系
 
 
 
+## Object类
+
+### 常用API
+
+```java
+public final native Class<?> getClass();
+//如果equals（）方法判断两个对象相等，这两个对象的hashCode()方法肯定返回相同值。
+//如果equals（）方法判断两个对象不相等，这两个对象的hashCode()方法也可能返回相同的值。
+public native int hashCode();
+//用来判断两个对象是否相等。在Object类的默认实现中，采用（this == obj）判断两个对象是否相等。
+//由于相等对象必须具有相同的hashCode，所以重写此方法时也需要重写hashCode()方法。
+public boolean equals(Object obj);
+//获得一个对象的拷贝。分为浅拷贝和深拷贝。
+//1. 浅拷贝：对象中的基本数据类型进行值传递，对引用数据类型进行引用间的传递，不创建新对象。
+//2. 深拷贝：对象中的基本数据类型进行值传递，对引用数据类型创建新的对象并复制其内容。
+//Object类中的close()方法实现的是浅拷贝。
+protected native Object clone();
+//返回一个对象的字符串表示。Object类中默认是getClass().getName()+"@"+ Integer.toHexString(hashCode());
+public String toString();
+//唤醒正在此对象监视器上等待的单个(任意)线程。该方法需要在synchronized 中调用。
+public final void notify();
+//唤醒等待此对象监视器的所有线程
+public final void notifyAll();
+//将当前线程置于此方法所属对象的等待集中，即使当前线程等待，然后放弃当前线程在该对象上的所有的锁。
+//直到另一个线程调用此对象的notify()方法或notifyAll()方法，或者已经过了指定的时间量。
+//该方法需要在synchronized 中调用。
+public final void wait();
+public final void wait(long timeoutMillis);
+```
+
+### 关于wait() 和 notify() 方法的说明
+
+线程也可以在没有被通知，中断或超时的情况下唤醒，即所谓的虚假唤醒。为了防止虚假唤醒，wait()操作应该放在循环中。
+
+```java
+synchronized (obj) {
+    while (<condition does not hold>)
+        obj.wait(timeout);
+    ... // Perform action appropriate to condition
+}
+```
+
+#### 使用wait()、notify() 的生产者-消费者模型
+
+```java
+private static final Integer EMPTY = 0;
+private static final Integer FULL = 10;
+private static final Object LOCK = new Object();
+Queue queue = new ArrayDeque(10);
+
+class Producer implements Runnable {
+    @Override
+    public void run() {
+        while (true) {
+            synchronized (LOCK) {
+                while (queue.size() == FULL) {
+                    LOCK.wait();      
+                }
+                queue.add(new Object());
+                System.out.println("生产者生产，目前总共有" + queue.size());
+                LOCK.notifyAll();
+            }
+        }
+    }
+}
+
+class Consumer implements Runnable {
+    @Override
+    public void run() {
+        while (true) {
+            synchronized (LOCK) {
+                while (queue.size() == EMPTY) {
+                    LOCK.wait();   
+                }
+                queue.poll();
+                System.out.println("消费者消费，目前总共有" + queue.size());
+                LOCK.notifyAll();
+            }
+        }
+    }
+}
+
+```
+
+
+
+1. 为什么wait() 和 notify() 方法属于Object类？
+
+   因为这一对方法阻塞时要释放占用的锁，而锁是任何对象都具有的，调用任意对象的 wait() 方法导致线程阻塞，并且该对象上的锁被释放。而调用 任意对象的notify()方法则导致因调用该对象的 wait() 方法而阻塞的线程中随机选择的一个解除阻塞（但要等到获得锁后才真正可执行）。
+
+2. 为什么wait() 和 notify() 方法却必须在 synchronized 方法或块中调用？
+
+   只有在synchronized 方法或块中当前线程才占有锁，才有锁可以释放。同样的道理，调用这一对方法的对象上的锁必须为当前线程所拥有，这样才有锁可以释放。因此，这一对方法调用必须放置在这样的 synchronized 方法或块中，该方法或块的上锁对象就是调用这一对方法的对象。若不满足这一条件，则程序虽然仍能编译，但在运行时会出现 IllegalMonitorStateException 异常。
+
+3. 关于 wait() 和 notify() 方法最后再说明两点：
+   第一：调用 notify() 方法导致解除阻塞的线程是从因调用该对象的 wait() 方法而阻塞的线程中随
+   机选取的，我们无法预料哪一个线程将会被选择，所以编程时要特别小心，避免因这种不确定性而产生问
+   题。
+
+   第二：除了 notify()，还有一个方法 notifyAll() 也可起到类似作用，唯一的区别在于，调用
+   notifyAll() 方法将把因调用该对象的 wait() 方法而阻塞的所有线程一次性全部解除阻塞。当然，只有
+   获得锁的那一个线程才能进入可执行状态。
+
 
 
 
@@ -145,3 +248,8 @@ StringBuffer是线程安全的可变字符序列。StringBuffer 所有的方法�
 ### StringBuilder
 
 StringBuilder是非线程安全的。StringBuilder也继承自AbstractStringBuilder类，相应的操作都是代理到父类的相应方法。
+
+
+
+## Thread类
+
