@@ -151,6 +151,8 @@ static final class ForwardingNode<K,V> extends Node<K,V> {
 
 #### initTable()方法
 
+initTable()方法只允许一个线程对表初始化。首先线程会判断当前sizeCtl字段的值，如果sizeCtl < 0 ，表示已经有线程正在进行初始化操作。则当前线程放弃cpu时间。否则当前线程先以CAS的方式将sizeCtl字段的值改为-1，表示表正在被初始化。然后对Node数组进行初始化。
+
 ```java
 //该方法只允许一个线程对表初始化
 private final Node<K,V>[] initTable() {
@@ -340,6 +342,14 @@ private final void transfer(Node<K,V>[] tab, Node<K,V>[] nextTab) {
 
 ####  put(K key, V value)方法
 
+首先当前线程会获取key对应的hashCode，之后当前线程进入for循环。在for循环中，当前线程首先判断Node数组是否已被初始化。如果已被初始化，当前线程会根据key的hashCode获取hashCode在Node数组中对应位置的元素，如果该位置元素为空则以CAS的方式将值插入该位置后跳出循环。
+
+否则如果该位置的元素是forwarding节点，说明Node数组正在扩容且整体还未完成，但该处已迁移完毕，则当前线程进入helpTransfer()方法协助扩容。
+
+否则当前线程使用synchronized 锁住该元素，并判断该节点的类型是链表或者红黑树，之后向其中插入值。之后如果链表深度超过 8，则将链表转换为红黑树
+
+
+
 ```java
 public V put(K key, V value) {
     return putVal(key, value, false);
@@ -415,7 +425,31 @@ final V putVal(K key, V value, boolean onlyIfAbsent) {
 }
 ```
 
- 
+####  get(Object key)
+
+```java
+public V get(Object key) {
+    Node<K,V>[] tab; Node<K,V> e, p; int n, eh; K ek;
+    int h = spread(key.hashCode());
+    if ((tab = table) != null && (n = tab.length) > 0 && (e = tabAt(tab, (n - 1) & h)) != null) {
+        if ((eh = e.hash) == h) {
+            if ((ek = e.key) == key || (ek != null && key.equals(ek)))
+                return e.val;
+        }
+        else if (eh < 0)
+            return (p = e.find(h, key)) != null ? p.val : null;
+        while ((e = e.next) != null) {
+            if (e.hash == h && ((ek = e.key) == key || (ek != null && key.equals(ek))))
+                return e.val;
+        }
+    }
+    return null;
+}
+```
+
+
+
+
 
 ## CopyOnWriteArrayList
 
