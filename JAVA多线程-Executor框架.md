@@ -69,7 +69,7 @@ TimeUnit unit)
 
 ### 1. 重点参数详解
 
-- corePoolSize（核心线程数）：当有新任务提交到线程池时，如果线程池中的线程数少于 corePoolSize，则即使存在空闲线程，线程池也会创建新线程来执行该任务。当线程池中的线程数大于corePoolSize时就不再创建新线程，而是将任务保存在BlockingQueue中。
+- corePoolSize（核心线程数）：有新任务提交时，如果此时线程池中的线程数少于 corePoolSize，则即使存在空闲线程，线程池也会创建新线程来执行该任务。当线程池中的线程数大于corePoolSize时就不再创建新线程，而是将任务保存在BlockingQueue中。
 - maximumPoolSize（允许的最大线程数）：如果线程池中的线程数多于 corePoolSize 而少于 maximumPoolSize，且任务队列已经饱和，则线程池会继续创建新线程，直到线程数达到maximumPoolSize。
 - keepAliveTime ：当线程池中的线程数大于corePoolSize时，则大余的线程在空闲时间超过keepAliveTime后将会终止。keepAliveTime提供了当池处于非活动状态时减少资源消耗的方法。
 - BlockingQueue任务队列：用于保存等待执行的任务的阻塞队列。
@@ -92,14 +92,14 @@ TimeUnit unit)
 ### 2. 常见的ThreadPoolExecutor类型
 
 #####  1. FixedThreadPool
-固定线程数的可重用的线程池的Executor，以共享的无界队列方式来运行这些线程。线程池中最多有 corePoolSize 个线程会处于活动状态。当线程数超过corePoolSize时，新任务被被提交后会被放入阻塞队列中等待直到有线程可用。如果某个线程由于未预期的Exception而结束，线程池会创建新线程来执行后续的任务。所有线程都会一直存于线程池中，直到显式的执行 ExecutorService.shutdown() 关闭。
+固定线程数的线程池，采用LinkedBlockingQueue任务队列。线程池中最多有 corePoolSize 个线程会处于活动状态。当线程数超过corePoolSize时，新任务会放入LinkedBlockingQueue中等待。如果某个线程由于未预期的Exception而结束，线程池会创建新线程来执行后续的任务。所有线程都会一直存于线程池中，直到显式的执行 ExecutorService.shutdown() 关闭。
 
 ```java
 // 参数定义
-	corePoolSize:nThreads
-	maximumPoolSize:nThreads
-	keepAliveTime:0L //意味着超过corePoolSize的线程在执行完后会立即终止。
-    BlockingQueue：LinkedBlockingQueue<Runnable>
+corePoolSize:nThreads
+maximumPoolSize:nThreads
+keepAliveTime:0L //超过corePoolSize的线程在执行完后会立即终止。
+BlockingQueue：LinkedBlockingQueue<Runnable>
 ```
 
 
