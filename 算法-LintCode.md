@@ -47,35 +47,37 @@
 
 ## 5. 第k大元素
 
-	private int quicksort(int[] nums, int left, int right, int k) {
-	    int pivot = nums[left];
-	    int i = left, j = right;
-	    while (i <= j) {
-	        while (i <= j && nums[i] > pivot) {
-	            i++;
-	        }
-	        while (i <= j && nums[j] < pivot) {
-	            j--;
-	        }
-	        if (i <= j) {
-	            int tmp = nums[i];
-	            nums[i] = nums[j];
-	            nums[j] = tmp;
-	            i++;
-	            j--;
-	        }
-	    }
-	    if (left + k  1 <= j) {
-	        return quicksort(nums, left, j, k);
-	    }
-	    if (left + k  1 >= i) {
-	        return quicksort(nums, i, right, k  (i - left));
-	    }
-	    return nums[j + 1];
-	}
-	public int kthLargestElement(int k, int[] nums) {
-	     return quicksort(nums, 0, nums.length  1, k);
-	}
+```java
+private int quicksort(int[] nums, int left, int right, int k) {
+    int pivot = nums[left];
+    int i = left, j = right;
+    while (i <= j) {
+        while (i <= j && nums[i] > pivot) {
+            i++;
+        }
+        while (i <= j && nums[j] < pivot) {
+            j--;
+        }
+        if (i <= j) {
+            int tmp = nums[i];
+            nums[i] = nums[j];
+            nums[j] = tmp;
+            i++;
+            j--;
+        }
+    }
+    if (left + k  1 <= j) {
+        return quicksort(nums, left, j, k);
+    }
+    if (left + k  1 >= i) {
+        return quicksort(nums, i, right, k  (i - left));
+    }
+    return nums[j + 1];
+}
+public int kthLargestElement(int k, int[] nums) {
+    return quicksort(nums, 0, nums.length-1, k);
+}
+```
 
 ## 6. 合并排序数组 II
 
