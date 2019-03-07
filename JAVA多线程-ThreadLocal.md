@@ -1,18 +1,18 @@
 # ThreadLocal
 
-ThreadLocal，也即：线程局部变量。
-
-## ThreadLocal的实现原理
-
-### ThreadLocalMap介绍
-
-ThreadLocalMap是ThreadLocal的静态内部类。ThreadLocalMap用于保存线程与其局部变量的映射。
+ThreadLocal，即线程局部变量。每一个线程都可以独立地改变自己的副本，而不会和其它线程的副本冲突。从线程的角度看，就好像每一个线程都完全拥有该变量。 
 
 ### ThreadLocal的原理
 
 为了实现ThreadLocal的功能，每一个线程中都有一个ThreadLocalMap对象，用于保存该线程的局部变量值。但是对该ThreadLocalMap对象的维护工作都是ThreadLocal类的对象进行的。
 
-## ThreadLocal方法剖析
+## ThreadLocal实现原理剖析
+
+### ThreadLocalMap类
+
+ThreadLocalMap是ThreadLocal的静态内部类。ThreadLocalMap用于保存线程与其局部变量的映射。
+
+
 
 ### get方法
 
@@ -31,7 +31,36 @@ public T get() {
 }
 ```
 
+```java
+ThreadLocalMap getMap(Thread t) {
+    return t.threadLocals;
+}
+```
 
+### setInitialValue()方法
 
+```java
+private T setInitialValue() {
+    T value = initialValue();//null值
+    Thread t = Thread.currentThread();
+    ThreadLocalMap map = getMap(t);
+    if (map != null) {
+        map.set(this, value);
+    } else {
+        createMap(t, value);
+    }
+    if (this instanceof TerminatingThreadLocal) {
+        TerminatingThreadLocal.register((TerminatingThreadLocal<?>) this);
+    }
+    return value;
+}
+```
 
+### createMap(Thread t, T firstValue)方法
+
+```java
+void createMap(Thread t, T firstValue) {
+    t.threadLocals = new ThreadLocalMap(this, firstValue);
+}
+```
 
