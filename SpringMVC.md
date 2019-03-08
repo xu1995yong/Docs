@@ -8,6 +8,20 @@
 
 
 
+
+
+## Servlet
+
+
+
+在根容器创建与子容器创建之间，还会创建监听器、过滤器等，完整的加载顺序为;
+
+- ServletContext -> context-param -> listener-> filter -> servlet
+
+
+
+
+
 ## WEB应用的分层
 
 
@@ -15,12 +29,13 @@
 ## Spring MVC的前端控制器模式
 前端控制器模式（Front Controller Pattern）是用来提供一个集中的请求处理机制，所有的请求都将由一个单一的处理程序处理。
 
-
 ## SpringMVC的初始化
+
+在Spring中，ApplicationContext对象的创建都是由用户执行。但是在WEB应用中，无法手动创建ApplicationContext，这时就需要根据WEB容器的特点，将ApplicationContext对象的创建工作添加到web容器的创建工作中。
 
 ### Spring MVC中父容器的初始化
 
-web容器的初始化首先加载web.xml文件。当容器初始化时会调用ServletContextListener接口的contextInitialized()方法。为了实现SpringMVC的初始化，需要在web.xml中注册ContextLoaderListener，并实现ServletContextListener接口，重写其contextInitialized()方法。ContextLoaderListener类还继承了ContextLoader类。
+web容器初始化时首先加载web.xml文件，之后会调用ServletContextListener接口的contextInitialized()方法完成Listener的初始化。为了实现SpringMVC的初始化，需要在web.xml中注册ContextLoaderListener，并实现ServletContextListener接口，重写其contextInitialized()方法。ContextLoaderListener类还继承了ContextLoader类。
 
 #### contextInitialized()
 
@@ -33,9 +48,10 @@ public void contextInitialized(ServletContextEvent event) {
 #### initWebApplicationContext()
 
 ```java
+//ContextLoader类
 public WebApplicationContext initWebApplicationContext(ServletContext servletContext) {
     if (this.context == null) {
-        //通过反射创建XmlWebApplicationContext
+        //通过反射创建WebApplicationContext，默认为XmlWebApplicationContext
         this.context = createWebApplicationContext(servletContext);
     }
     if (this.context instanceof ConfigurableWebApplicationContext) {
@@ -105,9 +121,9 @@ protected void configureAndRefreshWebApplicationContext(ConfigurableWebApplicati
 
 ### Spring MVC中子容器的初始化
 
-DispatchServlet的继承关系，如下图所示：可以看出，DispatchServlet通过继承FrameworkServlet和HttpServletBean而继承了HttpServlet。
-
 ![img](https://img-blog.csdn.net/20160422092959447?watermark/2/text/aHR0cDovL2Jsb2cuY3Nkbi5uZXQv/font/5a6L5L2T/fontsize/400/fill/I0JBQkFCMA==/dissolve/70/gravity/Center)
+
+子容器的初始化的初始化过程涉及三个类：HttpServletBean、FrameworkServlet和DispatcherServlet。DispatcherServlet通过继承FrameworkServlet和HttpServletBean而继承了HttpServlet。
 
 在Servlet容器初始化时会加载web.xml文件，之后会调用Servlet生命周期的init()方法初始化其中注册的Servlet。为完成dispatcherServlet的初始化，需要在web.xml中注册dispatcherServlet。
 
@@ -127,9 +143,10 @@ DispatchServlet的继承关系，如下图所示：可以看出，DispatchServle
 
 #### init()
 
-init()方法在整个系统启动时运行，且只运行一次。init方法中包括对容器（WebApplicationContext）的初始化、组件和外部资源的初始化等等。init()方法是在HttpServletBean中重写的。
+init()方法在整个系统启动时运行，且只运行一次。init方法中包括对容器（WebApplicationContext）的初始化、组件和外部资源的初始化等等。HttpServletBean中重写了init()方法。
 
 ```java
+//HttpServletBean
 public final void init() throws ServletException {
     //读取web.xml中DispatchServlet定义中的<init-param>，并注入到dispatcherServlet中
     PropertyValues pvs = new ServletConfigPropertyValues(getServletConfig(), this.requiredProperties);
@@ -149,16 +166,18 @@ public final void init() throws ServletException {
 #### initServletBean()
 
 ```java
+//FrameworkServlet
 protected final void initServletBean() throws ServletException {
     long startTime = System.currentTimeMillis();
     //初始化子容器WebApplicationContext
     this.webApplicationContext = initWebApplicationContext();
-    initFrameworkServlet();
+    initFrameworkServlet();//空方法，没有实现
 }
 ```
 #### initWebApplicationContext()
 
 ```java
+//FrameworkServlet
 protected WebApplicationContext initWebApplicationContext() {
     //获取ServletContext中保存的父容器WebApplicationContext
     WebApplicationContext rootContext =
@@ -212,24 +231,69 @@ protected WebApplicationContext initWebApplicationContext() {
 #### createWebApplicationContext(WebApplicationContext parent)
 
 ```java
+//FrameworkServlet
 protected WebApplicationContext createWebApplicationContext(WebApplicationContext parent) {
     return createWebApplicationContext((ApplicationContext) parent);
 }
 protected WebApplicationContext createWebApplicationContext(ApplicationContext parent) {
+    //获取XmlWebApplicationContext的Class对象
     Class<?> contextClass = getContextClass();
+    //根据获取的Class对象，通过反射创建XmlWebApplicationContext对象
     ConfigurableWebApplicationContext wac =
         (ConfigurableWebApplicationContext) BeanUtils.instantiateClass(contextClass);
 
     wac.setEnvironment(getEnvironment());
-    wac.setParent(parent);
+    wac.setParent(parent);//设置该XmlWebApplicationContext的父容器
     String configLocation = getContextConfigLocation();
     if (configLocation != null) {
-        wac.setConfigLocation(configLocation);
+        wac.setConfigLocation(configLocation);//设置配置文件的路径
     }
     configureAndRefreshWebApplicationContext(wac);
     return wac;
 }
 ```
+
+#### configureAndRefreshWebApplicationContext()
+
+```java
+//FrameworkServlet
+protected void configureAndRefreshWebApplicationContext(ConfigurableWebApplicationContext wac) {
+    if (ObjectUtils.identityToString(wac).equals(wac.getId())) {
+        if (this.contextId != null) {
+            wac.setId(this.contextId);
+        }
+        else {
+            wac.setId(ConfigurableWebApplicationContext.APPLICATION_CONTEXT_ID_PREFIX +
+                      ObjectUtils.getDisplayString(getServletContext().getContextPath()) + "/" + getServletName());
+        }
+    }
+
+    wac.setServletContext(getServletContext());
+    wac.setServletConfig(getServletConfig());
+    wac.setNamespace(getNamespace());
+    wac.addApplicationListener(new SourceFilteringListener(wac, new ContextRefreshListener()));
+
+    // The wac environment's #initPropertySources will be called in any case when the context
+    // is refreshed; do it eagerly here to ensure servlet property sources are in place for
+    // use in any post-processing or initialization that occurs below prior to #refresh
+    ConfigurableEnvironment env = wac.getEnvironment();
+    if (env instanceof ConfigurableWebEnvironment) {
+        ((ConfigurableWebEnvironment) env).initPropertySources(getServletContext(), getServletConfig());
+    }
+
+    postProcessWebApplicationContext(wac);//空实现
+    applyInitializers(wac);
+    wac.refresh();
+}
+```
+
+
+
+### 父子容器的区别
+
+父容器：保存数据源、服务层、DAO层、事务的bean。
+
+子容器：保存MVC相关的controller的bean。
 
 
 
