@@ -1,10 +1,6 @@
 # ThreadLocal
 
-ThreadLocal，即线程局部变量。每一个线程都可以独立地改变自己的副本，而不会和其它线程的副本冲突。从线程的角度看，就好像每一个线程都完全拥有该变量。 
-
-### ThreadLocal的原理
-
-为了实现ThreadLocal的功能，每一个线程中都有一个ThreadLocalMap对象，用于保存该线程的局部变量值。但是对该ThreadLocalMap对象的维护工作都是ThreadLocal类的对象进行的。
+ThreadLocal，即线程局部变量。为了实现ThreadLocal的功能，每一个线程中都有一个ThreadLocalMap对象，用于保存该线程的局部变量值。但是对该ThreadLocalMap对象的维护工作都是ThreadLocal类的对象进行的。
 
 ## ThreadLocal实现原理剖析
 
