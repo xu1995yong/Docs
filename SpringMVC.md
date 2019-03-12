@@ -424,7 +424,7 @@ protected void doDispatch(HttpServletRequest request, HttpServletResponse respon
         //检查是不是上传请求
         processedRequest = checkMultipart(request);
         multipartRequestParsed = (processedRequest != request);
-        // 根据请求获取相应的Handler。如果无法找到，则报错返回
+        // 根据请求获取相应的Handler和拦截器组成HandlerExecutionChain。如果无法找到，则报错返回
         mappedHandler = getHandler(processedRequest);
         if (mappedHandler == null) {
             noHandlerFound(processedRequest, response);

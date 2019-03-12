@@ -69,20 +69,17 @@ TimeUnit unit)
 
 ### 1. 重点参数详解
 
-- corePoolSize（核心线程数）：有新任务提交时，如果此时线程池中的线程数少于 corePoolSize，则即使存在空闲线程，线程池也会创建新线程来执行该任务。当线程池中的线程数大于corePoolSize时就不再创建新线程，而是将任务保存在BlockingQueue中。
+- corePoolSize（核心线程数）：有新任务提交时，如果此时线程池中的线程数少于 corePoolSize，则即使存在空闲线程，线程池也会创建新线程来执行该任务。
 - maximumPoolSize（允许的最大线程数）：如果线程池中的线程数多于 corePoolSize 而少于 maximumPoolSize，且任务队列已经饱和，则线程池会继续创建新线程，直到线程数达到maximumPoolSize。
 - keepAliveTime ：当线程池中的线程数大于corePoolSize时，则大余的线程在空闲时间超过keepAliveTime后将会终止。keepAliveTime提供了当池处于非活动状态时减少资源消耗的方法。
-- BlockingQueue任务队列：用于保存等待执行的任务的阻塞队列。
-  - 如果运行的线程少于 corePoolSize，则 Executor 始终首选添加新的线程，而不进行排队。
-  - 如果运行的线程等于或多于 corePoolSize，则 Executor 始终首选将请求加入队列，而不添加新的线程。
-  - 如果无法将请求加入队列，则创建新的线程，除非线程的数量超出 maximumPoolSize，在这种情况下，任务将被拒绝。
-    BlockingQueue有三种常用策略：
-    1. 直接提交。即使用SynchronousQueue。SynchronousQueue是一个没有容量的阻塞队列。当有新任务到达时，首先执行SynchronousQueue.offer()，当前线程池中有空闲线程正在执行SynchronousQueue.poll()，则主线程将任务分配给空闲线程执行。如果不存在这样的空闲线程，则试图把任务加入队列将失败，因此会构造一个新的线程。使用SynchronousQueue通常要求无界 maximumPoolSizes 以避免拒绝新提交的任务。
-    2. 无界队列。即使用LinkedBlockingQueue。这样当所有 corePoolSize 线程都忙时新任务会加入LinkedBlockingQueue队列中等待。这样创建的线程就不会超过 corePoolSize。（因此，maximumPoolSize、keepAliveTime的值也就无效了。）无界队列适合于任务执行互不影响时。
-    3. 有界队列。即使用ArrayBlockingQueue。有助于防止资源耗尽。
-    4. 优先级队列：PriorityBlockingQueue
+- BlockingQueue任务队列：用于保存等待执行的任务的阻塞队列。当线程池中的线程数大于corePoolSize时就不再创建新线程，而是将任务保存在BlockingQueue中。
+  BlockingQueue有三种常用策略：
+  1. 直接提交。SynchronousQueue。SynchronousQueue是一个没有容量的阻塞队列。当有新任务到达时，首先执行SynchronousQueue.offer()，当前线程池中有空闲线程正在执行SynchronousQueue.poll()，则主线程将任务分配给空闲线程执行。如果不存在这样的空闲线程，则试图把任务加入队列将失败，因此会构造一个新的线程。使用SynchronousQueue通常要求无界 maximumPoolSizes 以避免拒绝新提交的任务。
+  2. 无界队列：LinkedBlockingQueue。这样当所有 corePoolSize 线程都忙时新任务会加入LinkedBlockingQueue队列中等待。这样创建的线程就不会超过 corePoolSize。因此maximumPoolSize、keepAliveTime的值也就无效了。无界队列适合于任务执行互不影响时。
+  3. 有界队列：ArrayBlockingQueue。有助于防止资源耗尽。
+  4. 优先级队列：PriorityBlockingQueue
 - ThreadFactory：使用ThreadFactory创建新线程。默认使用Executors.defaultThreadFactory()创建线程。通过提供不同的ThreadFactory，可以改变线程的名称、线程组、优先级、守护进程状态。
-- RejectedExecutionHandler：当 Executor 已经关闭，或者当BlockingQueue为有界队列且线程池中的线程数达到maximumPoolSize时（即队列和线程池都处于饱和状态），这时再有任务进入时线程池会执行拒绝执行策略。JDK1.5中Java线程池提供了4种策略：
+- RejectedExecutionHandler：当 Executor 已经关闭，或者当BlockingQueue为有界队列且线程池中的线程数达到maximumPoolSize时，这时再有任务进入时线程池会执行拒绝执行策略。JDK1.5中Java线程池提供了4种策略：
 
   - ThreadPoolExecutor.AbortPolicy：处理程序遭到拒绝将抛出运行时 RejectedExecutionException。
   - ThreadPoolExecutor.CallerRunsPolicy：用调用者所在线程来运行任务。此策略提供简单的反馈控制机制，能够减缓新任务的提交速度。
@@ -98,7 +95,7 @@ TimeUnit unit)
 // 参数定义
 corePoolSize:nThreads
 maximumPoolSize:nThreads
-keepAliveTime:0L //超过corePoolSize的线程在执行完后会立即终止。
+keepAliveTime:0L 
 BlockingQueue：LinkedBlockingQueue<Runnable>
 ```
 
