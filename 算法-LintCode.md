@@ -108,78 +108,28 @@ public int kthLargestElement(int k, int[] nums) {
 	    return arr;
 	}
 
-## 7.二叉树的序列化和反序列化
-
-	public String serialize(TreeNode root) {
-	    StringBuilder sb = new StringBuilder();
-	    if (root == null)
-	        return "#";
-	    Queue<TreeNode> queue = new LinkedList<TreeNode>();
-	    queue.add(root);
-	    while (queue.size() != 0) {
-	        TreeNode node = queue.poll();
-	        if (node == null) {
-	            sb.append("#");
-	        } else {
-	            sb.append(node.val);
-	            queue.offer(node.left);
-	            queue.offer(node.right);
-	        }
-	        sb.append(",");
-	    }
-	    sb.deleteCharAt(sb.length()  1);
-	    return sb.toString();
-	}
-	
-	public TreeNode deserialize(String data) {
-	    if (data.equals("#")) {
-	        return null;
-	    }
-	
-	    String[] nodeVal = data.split(",");
-	    Deque<TreeNode> qu = new ArrayDeque<>();
-	    TreeNode head = new TreeNode(Integer.parseInt(nodeVal[0]));
-	    qu.offer(head);
-	    int idx = 1;
-	    while (idx < nodeVal.length) {
-	        TreeNode cur = qu.poll();
-	        if (nodeVal[idx].equals("#")) {
-	            cur.left = null;
-	            idx++;
-	        } else {
-	            cur.left = new TreeNode(Integer.parseInt(nodeVal[idx++]));
-	            qu.offer(cur.left);
-	        }
-	
-	        if (nodeVal[idx].equals("#")) {
-	            cur.right = null;
-	            idx++;
-	        } else {
-	            cur.right = new TreeNode(Integer.parseInt(nodeVal[idx++]));
-	            qu.offer(cur.right);
-	        }
-	    }
-	    return head;
-	}
+## 7.二叉树的序列化和反序列化 PASS
 
 ## 8. 旋转字符串
-	//(X'Y')'=YX
-	public void rotateString(char[] str, int offset) {
-		if (str == null || str.length == 0) {
-			return;
-		}
-		offset = offset % str.length;
-		reverse(str, 0, str.length - offset - 1);
-		reverse(str, str.length - offset, str.length - 1);
-		reverse(str, 0, str.length - 1);
-	}
-	private void reverse(char[] str, int start, int end) {
-		for (int i = start, j = end; i < j; i++, j--) {
-			char temp = str[i];
-			str[i] = str[j];
-			str[j] = temp;
-		}
-	}
+```java
+//(X'Y')'=YX
+public void rotateString(char[] str, int offset) {
+    if (str == null || str.length == 0) {
+        return;
+    }
+    offset = offset % str.length;
+    reverse(str, 0, str.length - offset - 1);
+    reverse(str, str.length - offset, str.length - 1);
+    reverse(str, 0, str.length - 1);
+}
+private void reverse(char[] str, int start, int end) {
+    for (int i = start, j = end; i < j; i++, j--) {
+        char temp = str[i];
+        str[i] = str[j];
+        str[j] = temp;
+    }
+}
+```
 ## 9. PASS
 ## 10. PASS
 ## 11.
@@ -230,52 +180,7 @@ public int kthLargestElement(int k, int[] nums) {
 	    return 1;
 	}
 
-## 14.二分查找
-
-	public int binarySearch(int[] nums, int target) {
-	    if (nums == null || nums.length == 0) {
-	        return 1;
-	    }
-	    int start = 0;
-	    int end = nums.length - 1;
-	    while (start < end) {
-	        int mid = start + (end - start) / 2;
-	
-	        System.out.println("mid = " + mid);
-	        if (nums[mid] == target) {
-	            end = mid;
-	        } else if (nums[mid] < target) {
-	            start = mid + 1;
-	        } else {
-	            end = mid - 1;
-	        }
-	        System.out.println(start);
-	        System.out.println(end);
-	    }
-	    if (nums[start] == target) {
-	        return start;
-	    }
-	    return 1;
-	}
-	
-	public int binarySearch(int[] nums, int target) {
-		if (nums == null || nums.length == 0) {
-			return -1;
-		}
-		int start = 0;
-		int end = nums.length - 1;
-		while (start <= end) {
-			int mid = (start + end) / 2;
-			if (nums[mid] == target) {
-				return mid;
-			} else if (nums[mid] < target) {
-				start = mid + 1;
-			} else if (nums[mid] > target) {
-				end = mid - 1;
-			}
-		}
-		return -1;
-	}
+## 14.二分查找  PASS
 
 ## 15.全排列
 	方法一：递归
@@ -669,19 +574,21 @@ public int searchMatrix(int[][] matrix, int target) {
 
 ## 41. 最大子数组
 
-	public int maxSubArray(int[] A) {
-	    if (A == null || A.length == 0){
-	        return 0;
-	    }
-	    int max = Integer.MIN_VALUE;
-		int sum = 0;
-	    for (int i = 0; i < A.length; i++) {
-	        sum += A[i];//sum记录从A[0]到A[i]之间的数的和
-	        max = Math.max(max, sum);  //现在子数组的最大值
-	        sum = Math.max(sum, 0);//如果sum小于零，则sum重新置零（放弃之前的各数和）
-	    }
-	    return max;
-	}
+```java
+public int maxSubArray(int[] A) {
+    if (A == null || A.length == 0){
+        return 0;
+    }
+    int max = Integer.MIN_VALUE;
+    int sum = 0;
+    for (int i = 0; i < A.length; i++) {
+        sum += A[i];//sum记录从A[0]到A[i]之间的数的和
+        max = Math.max(max, sum);  //现在子数组的最大值
+        sum = Math.max(sum, 0);//如果sum小于零，则sum重新置零（放弃之前的各数和）
+    }
+    return max;
+}
+```
 
 
 
@@ -1434,30 +1341,34 @@ public int longestCommonSubstring(String A, String B) {
 		return val;
 	}
 ## 84. 落单的数 III
-	思路:对于2*n+1个数字用异或就可以，参见博客LintCode-82.落单的数，而在此题将所有数异或之后得到的是两个落单的数的异或结果，没办法将结果拆分成两个落单的数。但因为两个落单数不同，所以肯定存在某个位k，使得两落单数在第k位上一个为0另一个为1（怎么找到这个k? 找异或结果中1出现的位置即可）。只需找到最小的这个k，然后将在k位上为0的所有数做异或得出其中一个落单的数，在k位为1的所有数也做另外的异或，得出另一个落单的数，这样最终可以得到两个落单的数。
-	public List<Integer> singleNumberIII(int[] A) {
-		ArrayList<Integer> result = new ArrayList<Integer>(2);
-		if (A == null || A.length == 0) {
-			return result;
-		}
-		int xor = 0;
-		for (int i = 0; i < A.length; i++) {
-			xor ^= A[i];
-		}
-		int lastBit = xor - (xor & (xor - 1));
-		int v1 = 0;
-		int v2 = 0;
-		for (int i = 0; i < A.length; i++) {
-			if ((lastBit & A[i]) == 0) {
-				v1 ^= A[i];
-			} else {
-				v2 ^= A[i];
-			}
-		}
-		result.add(v1);
-		result.add(v2);
-		return result;
-	}
+```java
+/*
+思路:对于2*n+1个数字用异或就可以，参见博客LintCode-82.落单的数，而在此题将所有数异或之后得到的是两个落单的数的异或结果，没办法将结果拆分成两个落单的数。但因为两个落单数不同，所以肯定存在某个位k，使得两落单数在第k位上一个为0另一个为1（怎么找到这个k? 找异或结果中1出现的位置即可）。只需找到最小的这个k，然后将在k位上为0的所有数做异或得出其中一个落单的数，在k位为1的所有数也做另外的异或，得出另一个落单的数，这样最终可以得到两个落单的数。
+*/
+public List<Integer> singleNumberIII(int[] A) {
+    ArrayList<Integer> result = new ArrayList<Integer>(2);
+    if (A == null || A.length == 0) {
+        return result;
+    }
+    int xor = 0;
+    for (int i = 0; i < A.length; i++) {
+        xor ^= A[i];
+    }
+    int lastBit = xor - (xor & (xor - 1));
+    int v1 = 0;
+    int v2 = 0;
+    for (int i = 0; i < A.length; i++) {
+        if ((lastBit & A[i]) == 0) {
+            v1 ^= A[i];
+        } else {
+            v2 ^= A[i];
+        }
+    }
+    result.add(v1);
+    result.add(v2);
+    return result;
+}
+```
 ## 85. 在二叉查找树中插入节点
 
 ```java
@@ -1617,50 +1528,52 @@ public int maxDepth(TreeNode root) {
 ```
 
 ## 98.链表排序
-	private ListNode findMiddle(ListNode head) {
-	    ListNode slow = head, fast = head.next;
-	    while (fast != null && fast.next != null) {
-	        fast = fast.next.next;
-	        slow = slow.next;
-	    }
-	    return slow;
-	}    
-	
-	private ListNode merge(ListNode head1, ListNode head2) {
-	    ListNode dummy = new ListNode(0);
-	    ListNode tail = dummy;
-	    while (head1 != null && head2 != null) {
-	        if (head1.val < head2.val) {
-	            tail.next = head1;
-	            head1 = head1.next;
-	        } else {
-	            tail.next = head2;
-	            head2 = head2.next;
-	        }
-	        tail = tail.next;
-	    }
-	    if (head1 != null) {
-	        tail.next = head1;
-	    } else {
-	        tail.next = head2;
-	    }
-	
-	    return dummy.next;
-	}
-	
-	public ListNode sortList(ListNode head) {
-	    if (head == null || head.next == null) {
-	        return head;
-	    }
-	
-	    ListNode mid = findMiddle(head);
-	
-	    ListNode right = sortList(mid.next);
-	    mid.next = null;
-	    ListNode left = sortList(head);
-	
-	    return merge(left, right);
-	}
+```java
+private ListNode findMiddle(ListNode head) {
+    ListNode slow = head, fast = head.next;
+    while (fast != null && fast.next != null) {
+        fast = fast.next.next;
+        slow = slow.next;
+    }
+    return slow;
+}    
+
+private ListNode merge(ListNode head1, ListNode head2) {
+    ListNode dummy = new ListNode(0);
+    ListNode tail = dummy;
+    while (head1 != null && head2 != null) {
+        if (head1.val < head2.val) {
+            tail.next = head1;
+            head1 = head1.next;
+        } else {
+            tail.next = head2;
+            head2 = head2.next;
+        }
+        tail = tail.next;
+    }
+    if (head1 != null) {
+        tail.next = head1;
+    } else {
+        tail.next = head2;
+    }
+
+    return dummy.next;
+}
+
+public ListNode sortList(ListNode head) {
+    if (head == null || head.next == null) {
+        return head;
+    }
+
+    ListNode mid = findMiddle(head);
+
+    ListNode right = sortList(mid.next);
+    mid.next = null;
+    ListNode left = sortList(head);
+
+    return merge(left, right);
+}
+```
 ## 99. 重排链表
 
 	//快慢指针的思想找到链表中的中间节点
@@ -2448,18 +2361,15 @@ public int climbStairs(int n) {
 ## 159. 寻找旋转排序数组中的最小值
 ```java
 /**
-     首先，我们可以把一个排序数组先分割成两部分[first, second]，其中，first代表前面几个元素，second代表之后的， 例如对于数组[0, 1, 2, 4, 5, 6, 7]，可以设定first = [0, 1, 2], second = [4, 5, 6, 7]. 那么经过旋转之后，数组就变成了[second, first]，我们观察一下，这个新数组有这样两个特性：（1）second中所有元素都大于first中任意元素（2）second与first都是递增的序列
+把一个排序数组先分割成两部分[first, second]，其中，first代表前面几个元素，second代表之后的元素， 例如对于数组[0, 1, 2, 4, 5, 6, 7]，可以设定first = [0, 1, 2], second = [4, 5, 6, 7]. 那么经过旋转之后，数组就变成了[second, first]，我们观察一下，这个新数组有这样两个特性：（1）second中所有元素都大于first中任意元素（2）second与first都是递增的序列
 */
 public int findMin(int[] nums) {
-    if (nums == null || nums.length == 0) {
-        return -1;
-    }
     int left = 0;
     int right = nums.length - 1;
-    //该循环退出的唯一条件是left==right，此时left和right同时指向最小值
+
     while (left < right && nums[left] > nums[right]) {
          int mid = (left + right) / 2;
-        if (nums[left] <= nums[mid]) { //mid指在second中，而最小值肯定在mid后面
+        if (nums[left] < nums[mid]) { //mid指在second中，而最小值肯定在mid后面
             left = mid + 1;
         } else {//mid指在first中
             right = mid;
@@ -2472,9 +2382,6 @@ public int findMin(int[] nums) {
 ## 160. 寻找旋转排序数组中的最小值（有重复数字）
 ```java
 public int findMin(int[] nums) {
-    if (nums == null || nums.length == 0) {
-        return -1;
-    }
     int low = 0;
     int high = nums.length - 1;
     while (low < high && nums[low] >= nums[high]) {

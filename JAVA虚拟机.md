@@ -272,12 +272,12 @@ jcmd   #几乎集合了jps、jstat、jinfo、jmap、jstack所有功能，一个�
 
 ### 双亲委派模型
 从JAVA开发者的角度看，类加载器可以分为3种：
-    1. 启动类加载器：负责加载JAVA_HOME\lib目录中或者参数指定的路径中的类库
-    2. 扩展类加载器
-    3. 应用程序类加载器：负责加载用户类路径上所指定的类库。
+1. 启动类加载器：负责加载JAVA_HOME\lib目录中或者参数指定的路径中的类库
+2. 扩展类加载器：负责加载`<JAVA_HOME>/lib/ext`目录下或者由系统变量-Djava.ext.dir指定位路径中的类库
+3. 应用程序类加载器：负责加载用户类路径上所指定的类库。
 
 
-![âåäº²å§æ´¾æ¨¡åâçå¾çæç´¢ç"æ](https://images2018.cnblogs.com/blog/1371573/201804/1371573-20180411125544170-1010365637.png)
+![img](https://img-blog.csdn.net/20170625231013755?watermark/2/text/aHR0cDovL2Jsb2cuY3Nkbi5uZXQvamF2YXplamlhbg==/font/5a6L5L2T/fontsize/400/fill/I0JBQkFCMA==/dissolve/70/gravity/SouthEast)
 
 图中展示的类加载器之间的层次关系称为类加载器的双亲委派模型。双亲委派模型要求除了顶层的启动器加载器外，其余的类加载器都应该有自己的父类加载器。
 
