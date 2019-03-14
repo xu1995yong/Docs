@@ -21,7 +21,9 @@ private int size;//表示实际存储的元素的数量。
 
 ####  ArrayList的扩容机制
 
-创建对象时可以指定ArrayList的初始大小：
+创建ArrayList时如果指定了ArrayList的初始大小，则创建指定大小的数组。
+
+若未指定初始大小，则使用一个长度为零的空数组，待添加数据时再扩容。
 
 ```java
 public ArrayList(int initialCapacity) {
@@ -30,6 +32,11 @@ public ArrayList(int initialCapacity) {
     } else if (initialCapacity == 0) {
         this.elementData = EMPTY_ELEMENTDATA;
     } 
+}
+//未指定初始大小
+private static final Object[] DEFAULTCAPACITY_EMPTY_ELEMENTDATA = {};
+public ArrayList() {
+    this.elementData = DEFAULTCAPACITY_EMPTY_ELEMENTDATA;
 }
 ```
 
@@ -419,11 +426,11 @@ private static <T> void siftDownComparable(int k, T x, Object[] es, int n) {
 HashSet和HashMap有相同的实现，前者仅仅是对后者做了一层包装，即HashSet里有一个HashMap（适配器模式）。
 
 - **HashMap中的数据类型为数组 + 链表 +红黑树。**其中数组中存放链表头节点的指针。当链表长度大于等于8时，链表会转化为红黑树。
-- HashMap*实现了*Map接口，允许放入`key`为`null`的元素，也允许插入`value`为`null`的元素
+- HashMap实现了Map接口，允许放入 key 为 null 的元素，也允许插入 value 为 null 的元素
 - HashMap不保证线程安全。
 - HashMap不保证元素顺序，根据需要该容器可能会对元素重新哈希，元素的顺序也会被重新打散。
 
-将对象放入到*HashMap*或*HashSet*中时，有两个方法需要特别关心：`hashCode()`和`equals()`。**`hashCode()`方法决定了对象会被放到哪个`bucket`里，当多个对象的哈希值冲突时，`equals()`方法决定了这些对象是否是“同一个对象”**。所以，如果要将自定义的对象放入到`HashMap`或`HashSet`中，需要重写key对象的`hashCode()`和`equals()`方法。**在比较时，先比较key的hash和key的地址是否相同，再使用equals()方法比较两个key对象是否相同**。
+将对象放入到 HashMap 或 HashSet 或者 ConcurrentHashMap 中时，有两个方法需要特别关心：`hashCode()`和`equals()`。**`hashCode()`方法决定了对象会被放到哪个`bucket`里，当多个对象的哈希值冲突时，`equals()`方法决定了这些对象是否是“同一个对象”**。所以，如果要将自定义的对象放入到`HashMap`或`HashSet`中，需要重写key对象的`hashCode()`和`equals()`方法。**在比较时，先比较key的hash和key的地址是否相同，再使用equals()方法比较两个key对象是否相同**。
 
 ### 重要字段
 
@@ -595,8 +602,8 @@ Node<K,V> removeNode(int hash, Object key, Object value, boolean matchValue, boo
 1. 每个节点的颜色必须是红色或黑色。
 2. 根节点的颜色是黑色。
 3. 所有NIL节点都是黑色节点。
-4. 每个红色节点的子节点必须是黑色节点。（从每个NIL节点到根节点的所有路径上不能有两个连续的红色节点。）
-5. 从任一节点到其每个叶子节点的所有路径都必须包含相同数目的黑色节点（简称黑高度）。
+4. **每个红色节点的子节点必须是黑色节点。**（从每个NIL节点到根节点的所有路径上不能有两个连续的红色节点。）
+5. **从任一节点到其每个叶子节点的所有路径都必须包含相同数目的黑色节点**（简称黑高度）。
 
 ![img](https://img-my.csdn.net/uploads/201212/12/1355319681_6107.png)
 

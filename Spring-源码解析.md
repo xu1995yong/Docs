@@ -257,7 +257,7 @@ protected void loadBeanDefinitions(DefaultListableBeanFactory beanFactory) {
 
 
 
-### bean的生命周期
+## bean的生命周期
 
 ![img](https://images2015.cnblogs.com/blog/801753/201608/801753-20160809105632527-898343609.jpg)
 
@@ -277,7 +277,68 @@ protected void loadBeanDefinitions(DefaultListableBeanFactory beanFactory) {
 
 
 
+## Spring中循环依赖问题
 
+循环依赖即循环引用，就是两个或以上的bean互相持有对方，最终形成闭环。比如A依赖于B，B依赖于C，C依赖于A。
+
+Spring中循环依赖场景有： 构造器的循环依赖 、field属性的循环依赖。
+
+### Spring中循环依赖的检测
+
+
+
+### Spring中解决循环依赖
+
+Spring解决循环依赖的理论依据其实是Java基于引用传递，即获取java对象的引用时，对象的字段可以延后设置的。
+
+Spring中将Bean的创建过程分为三步，都在AbstractAutowireCapableBeanFactory类的doCreateBean()方法中。
+
+1. createBeanInstance(beanName, mbd, args)：创建bean的实例。
+2. populateBean(beanName, mbd, instanceWrapper)：属性填充
+3. initializeBean(beanName, exposedObject, mbd)：调用配置文件中指定的init-method初始化对象。
+
+Spring为了解决单例的循环依赖问题，使用了三级缓存。定义在DefaultSingletonBeanRegistry类中。
+
+```java
+/** Cache of singleton objects: bean name to bean instance. */
+private final Map<String, Object> singletonObjects = new ConcurrentHashMap<>(256);
+
+/** Cache of singleton factories: bean name to ObjectFactory. */
+private final Map<String, ObjectFactory<?>> singletonFactories = new HashMap<>(16);
+
+/** Cache of early singleton objects: bean name to bean instance. */
+private final Map<String, Object> earlySingletonObjects = new HashMap<>(16);
+```
+
+
+
+
+
+
+
+```java
+protected Object getSingleton(String beanName, boolean allowEarlyReference) {
+    //先从singletonObjects缓存中获取对象
+    Object singletonObject = this.singletonObjects.get(beanName);
+    //如果从singletonObjects缓存中获取不到，并且当前对象正在创建中。说明当前对象还没有创建完全，
+    //即存在循环依赖的问题。此时从earlySingletonObjects缓存中获取对象。
+    if (singletonObject == null && isSingletonCurrentlyInCreation(beanName)) {
+        synchronized (this.singletonObjects) {
+            singletonObject = this.earlySingletonObjects.get(beanName);
+            //如果earlySingletonObjects缓存中获取不到，且允许创建早期应用
+            if (singletonObject == null && allowEarlyReference) {
+                ObjectFactory<?> singletonFactory = this.singletonFactories.get(beanName);
+                if (singletonFactory != null) {
+                    singletonObject = singletonFactory.getObject();
+                    this.earlySingletonObjects.put(beanName, singletonObject);
+                    this.singletonFactories.remove(beanName);
+                }
+            }
+        }
+    }
+    return singletonObject;
+}
+```
 
 
 

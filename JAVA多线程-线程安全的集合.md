@@ -2,12 +2,11 @@
 
 ### JDK7中的实现分析
 
-ConcurrentHashMap在JDK1.7中采用锁分段技术 Segment+ HashEntry实现。即在ConcurrentHashMap中，把容器分为多个segment段，每个segment段中有一个HashEntry类型的数组用来保存数据，同时每个segment段有一把锁。这样当多线程不同segment段的数据时，线程间就不会存在竞争关系。
+ConcurrentHashMap在JDK1.7中采用锁分段技术 Segment+ HashEntry实现。即在ConcurrentHashMap中，把容器分为多个segment段，每个segment段中有一个HashEntry类型的数组用来保存数据，同时每个segment段有一把锁。这样当多线程修改不同segment段的数据时，线程间就不会存在竞争关系。但是如果多线程同时修改同一个segment段中的数据，还是会存在对锁的争用。
 
 如下所示：
 
 ![img](http://upload-images.jianshu.io/upload_images/2184951-af57d9d50ae9f547.png?imageMogr2/auto-orient/strip%7CimageView2/2/w/1240)
-
 
 #### put(K key, V value)
 
@@ -27,10 +26,11 @@ public V put(K key, V value) {
 ##### 重要字段
 
 ```java
-volatile HashEntry<K,V>[] table;//segment段中用来保存数据的数组。HashEntry代表一个链表节点
+//segment段中用来保存数据的HashEntry类型的数组。其中HashEntry代表一个链表节点
+volatile HashEntry<K,V>[] table;
 ```
 
-##### put(K key, int hash, V value, boolean onlyIfAbsent)
+##### put()
 
 ```java
 final V put(K key, int hash, V value, boolean onlyIfAbsent) {
@@ -149,7 +149,114 @@ static final class ForwardingNode<K,V> extends Node<K,V> {
 }
 ```
 
-#### initTable()方法
+####  put()
+
+首先当前线程会获取key对应的hashCode，之后当前线程进入for循环。在for循环中，当前线程首先判断Node数组是否已被初始化。如果已被初始化，当前线程会根据key的hashCode获取在Node数组中对应位置的元素，如果该位置元素为空则以CAS的方式将值插入该位置后跳出循环。
+
+否则如果该位置的元素是forwarding节点，说明Node数组正在扩容且整体还未完成，但该处已迁移完毕，则当前线程进入helpTransfer()方法协助扩容。
+
+如果该位置的元素不为空，且不是forwarding节点类型，则当前线程使用synchronized 锁住该元素，并判断该节点的类型是链表或者红黑树，之后向其中插入值。之后如果链表深度超过 8，则将链表转换为红黑树。此时用synchronized 是因为多线程在链表或者红黑树中遍历然后插入节点的操作，会有线程安全问题。
+
+```java
+final V putVal(K key, V value, boolean onlyIfAbsent) {
+    int hash = spread(key.hashCode());
+    int binCount = 0;
+    for (Node<K,V>[] tab = table;;) {
+        Node<K,V> f; int n, i, fh; K fk; V fv;
+        if (tab == null || (n = tab.length) == 0) //如果表为空则初始化表
+            tab = initTable();
+        //获取key的hash值在table中的对应位置的桶头节点
+        else if ((f = tabAt(tab, i = (n - 1) & hash)) == null) {
+            //如果桶头节点为空，则CAS的方式赋值
+            if (casTabAt(tab, i, null, new Node<K,V>(hash, key, value)))
+                break;                  
+        }
+        /*
+        如果桶头节点的hash值为MOVED（即桶头节点是forwarding节点），说明table正在扩容且整体还未完成，但该处已迁移完毕，则当前线程进入helpTransfer()方法协助扩容。
+        */
+        else if ((fh = f.hash) == MOVED) 
+            tab = helpTransfer(tab, f);
+        //否则锁住该桶头结点，然后向桶中添加一个节点
+        else {
+            V oldVal = null;
+            synchronized (f) {
+                if (tabAt(tab, i) == f) {
+                    //向链表中添加节点
+                    if (fh >= 0) {
+                        binCount = 1;
+                        for (Node<K,V> e = f;; ++binCount) {
+                            K ek;
+                            //如果key在链表中已存在
+                            if (e.hash == hash && ((ek = e.key) == key || (ek != null && key.equals(ek)))) {
+                                oldVal = e.val;
+                                if (!onlyIfAbsent)
+                                    e.val = value;
+                                break;
+                            }
+                            Node<K,V> pred = e;
+                            //否则向链表尾部添加节点
+                            if ((e = e.next) == null) {
+                                pred.next = new Node<K,V>(hash, key, value);
+                                break;
+                            }
+                        }
+                    }
+                    //向红黑树中添加元素
+                    else if (f instanceof TreeBin) {
+                        Node<K,V> p;
+                        binCount = 2;
+                        if ((p = ((TreeBin<K,V>)f).putTreeVal(hash, key, value)) != null) {
+                            oldVal = p.val;
+                            if (!onlyIfAbsent)
+                                p.val = value;
+                        }
+                    }
+                }
+            }
+            if (binCount != 0) {
+                //如果链表深度超过 8，则将链表转换为红黑树
+                if (binCount >= TREEIFY_THRESHOLD)
+                    treeifyBin(tab, i);
+                if (oldVal != null)
+                    return oldVal;
+                break;
+            }
+        }
+    }
+    addCount(1L, binCount);
+    return null;
+}
+```
+
+####  get(Object key)
+
+在ConcurrentHashMap中，get()方法不需要上锁，因为不会存在线程安全问题。
+
+```java
+public V get(Object key) {
+    Node<K,V>[] tab; Node<K,V> e, p; int n, eh; K ek;
+    int h = spread(key.hashCode());//获取传入的key的hashcode
+    //如果传入的key的hash值在数组中对应位置有元素
+    if ((tab = table) != null && (n = tab.length) > 0 && (e = tabAt(tab, (n - 1) & h)) != null) {
+        //该元素的hash值与key的hash值相等，
+        if ((eh = e.hash) == h) {
+            //再比较该元素的key的值与传入的key的值是否相等，如果相等则返回该元素的value。
+            if ((ek = e.key) == key || (ek != null && key.equals(ek)))
+                return e.val;
+        }
+        //eh小于0有两种情况，该节点是ForwardingNode节点，或者是红黑树节点。
+        else if (eh < 0)  //所以要到ForwardingNode中或者红黑树中查找节点
+            return (p = e.find(h, key)) != null ? p.val : null;
+        while ((e = e.next) != null) {//在链表中查找
+            if (e.hash == h && ((ek = e.key) == key || (ek != null && key.equals(ek))))
+                return e.val;
+        }
+    }
+    return null;
+}
+```
+
+#### initTable()
 
 initTable()方法只允许一个线程对表初始化。首先线程会判断当前sizeCtl字段的值，如果sizeCtl < 0 ，表示已经有线程正在进行初始化操作。则当前线程放弃cpu时间。否则当前线程先以CAS的方式将sizeCtl字段的值改为-1，表示表正在被初始化。然后对Node数组进行初始化。
 
@@ -178,7 +285,7 @@ private final Node<K,V>[] initTable() {
 }
 ```
 
-#### helpTransfer(Node<K,V>[] tab, Node<K,V> f)
+#### helpTransfer()
 
 ```java
 final Node<K,V>[] helpTransfer(Node<K,V>[] tab, Node<K,V> f) {
@@ -203,7 +310,7 @@ final Node<K,V>[] helpTransfer(Node<K,V>[] tab, Node<K,V> f) {
 }
 ```
 
-#### transfer(Node<K,V>[] tab, Node<K,V>[] nextTab)
+#### transfer()
 
 ```java
 private final void transfer(Node<K,V>[] tab, Node<K,V>[] nextTab) {
@@ -340,112 +447,7 @@ private final void transfer(Node<K,V>[] tab, Node<K,V>[] nextTab) {
 }
 ```
 
-####  put(K key, V value)方法
 
-首先当前线程会获取key对应的hashCode，之后当前线程进入for循环。在for循环中，当前线程首先判断Node数组是否已被初始化。如果已被初始化，当前线程会根据key的hashCode获取hashCode在Node数组中对应位置的元素，如果该位置元素为空则以CAS的方式将值插入该位置后跳出循环。
-
-否则如果该位置的元素是forwarding节点，说明Node数组正在扩容且整体还未完成，但该处已迁移完毕，则当前线程进入helpTransfer()方法协助扩容。
-
-否则当前线程使用synchronized 锁住该元素，并判断该节点的类型是链表或者红黑树，之后向其中插入值。之后如果链表深度超过 8，则将链表转换为红黑树
-
-
-
-```java
-public V put(K key, V value) {
-    return putVal(key, value, false);
-}
-
-final V putVal(K key, V value, boolean onlyIfAbsent) {
-    int hash = spread(key.hashCode());
-    int binCount = 0;
-    for (Node<K,V>[] tab = table;;) {
-        Node<K,V> f; int n, i, fh; K fk; V fv;
-        if (tab == null || (n = tab.length) == 0) //如果表为空则初始化表
-            tab = initTable();
-        //获取key的hash值在table中的对应位置的桶头节点
-        else if ((f = tabAt(tab, i = (n - 1) & hash)) == null) {
-            //如果桶头节点为空，则CAS的方式赋值
-            if (casTabAt(tab, i, null, new Node<K,V>(hash, key, value)))
-                break;                  
-        }
-        /*
-        如果桶头节点的hash值为MOVED（即桶头节点是forwarding节点），说明table正在扩容且整体还未完成，但该处已迁移完毕，则当前线程进入helpTransfer()方法协助扩容。
-        */
-        else if ((fh = f.hash) == MOVED) 
-            tab = helpTransfer(tab, f);
-		//否则锁住该桶头结点，然后向桶中添加一个节点
-        else {
-            V oldVal = null;
-            synchronized (f) {
-                if (tabAt(tab, i) == f) {
-                    //向链表中添加节点
-                    if (fh >= 0) {
-                        binCount = 1;
-                        for (Node<K,V> e = f;; ++binCount) {
-                            K ek;
-                            //如果key在链表中已存在
-                            if (e.hash == hash && ((ek = e.key) == key || (ek != null && key.equals(ek)))) {
-                                oldVal = e.val;
-                                if (!onlyIfAbsent)
-                                    e.val = value;
-                                break;
-                            }
-                            Node<K,V> pred = e;
-                            //否则向链表尾部添加节点
-                            if ((e = e.next) == null) {
-                                pred.next = new Node<K,V>(hash, key, value);
-                                break;
-                            }
-                        }
-                    }
-                    //向红黑树中添加元素
-                    else if (f instanceof TreeBin) {
-                        Node<K,V> p;
-                        binCount = 2;
-                        if ((p = ((TreeBin<K,V>)f).putTreeVal(hash, key, value)) != null) {
-                            oldVal = p.val;
-                            if (!onlyIfAbsent)
-                                p.val = value;
-                        }
-                    }
-                }
-            }
-            if (binCount != 0) {
-                //如果链表深度超过 8，则将链表转换为红黑树
-                if (binCount >= TREEIFY_THRESHOLD)
-                    treeifyBin(tab, i);
-                if (oldVal != null)
-                    return oldVal;
-                break;
-            }
-        }
-    }
-    addCount(1L, binCount);
-    return null;
-}
-```
-
-####  get(Object key)
-
-```java
-public V get(Object key) {
-    Node<K,V>[] tab; Node<K,V> e, p; int n, eh; K ek;
-    int h = spread(key.hashCode());
-    if ((tab = table) != null && (n = tab.length) > 0 && (e = tabAt(tab, (n - 1) & h)) != null) {
-        if ((eh = e.hash) == h) {
-            if ((ek = e.key) == key || (ek != null && key.equals(ek)))
-                return e.val;
-        }
-        else if (eh < 0)
-            return (p = e.find(h, key)) != null ? p.val : null;
-        while ((e = e.next) != null) {
-            if (e.hash == h && ((ek = e.key) == key || (ek != null && key.equals(ek))))
-                return e.val;
-        }
-    }
-    return null;
-}
-```
 
 
 
@@ -456,13 +458,13 @@ public V get(Object key) {
 ### 总体介绍
 CopyOnWriteArrayList是ArrayList的一个线程安全的变体，其中所有能使元素产生变化的操作（add、set 等等）都是通过对底层数组进行一次新的复制来实现的。
 
-CopyOnWriteArrayList，运用了一种**“写时复制”**的思想。即如果需要修改（增/删/改）列表中的元素，不直接进行修改，而是先将列表Copy，然后在新的副本上进行修改，修改完成之后，再将引用从原列表指向新列表。这样做的好处是**读/写是不会冲突**的，可以并发进行，读操作还是在原列表，写操作在新列表。仅仅当有多个线程同时进行写操作时，才会进行同步。所以CopyOnWriteArrayList适用于读多写少”的情形
+CopyOnWriteArrayList，运用了一种**“写时复制”**的思想。即如果需要修改（增/删/改）列表中的元素，不直接进行修改，而是先将列表Copy，然后在新的副本上进行修改，修改完成之后，再将引用从原列表指向新列表。这样做的好处是**读/写是不会冲突**的，可以并发进行，读操作还是在原列表，写操作在新列表，但是**写入的数据不可能立刻被读到**。仅仅当有多个线程同时进行写操作时，才会进行同步。所以CopyOnWriteArrayList适用于读多写少”的情形
 
 ### 核心方法解析
 
 #### add()方法
 
-**add()**方法首先会进行加锁，保证只有一个线程能进行修改；然后会创建一个大小为n+1新数组，并将原数组的值复制到新数组，新元素插入到新数组的最后；最后将新数组设置为其内部数组。
+**add()**方法首先会使用synchronized加锁，保证只有一个线程能进行修改；然后会创建一个大小为n+1新数组，并将原数组的值复制到新数组，新元素插入到新数组的最后；最后将新数组设置为其内部数组。
 
 ```java
 public boolean add(E e) {

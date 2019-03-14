@@ -266,25 +266,17 @@ jcmd   #几乎集合了jps、jstat、jinfo、jmap、jstack所有功能，一个�
 4. 当jvm启动时，需要先初始化要执行的主类（包含main方法的类）。
 5. 使用jdk1.7中的java.lang.invoke.MethodHandle时。
 
-
 ## JVM中的类加载器
-  JVM中的所有类加载器都拥有各自独立的类名称空间。也即：比较两个类是否"相等"，只有在这两个类是由同一个类加载器加载的前提下才有意义。否则即使两个类来源于同一个Class文件，且被同一个虚拟机加载，只要加载他们的类加载器不同，那这两个类必定不相等。
+
+类加载器主要用于类的生命周期中的加载阶段。
+
+JVM中的所有类加载器都拥有各自独立的类名称空间。也即：比较两个类是否"相等"，只有在这两个类是由同一个类加载器加载的前提下才有意义。否则即使两个类来源于同一个Class文件，且被同一个虚拟机加载，只要加载他们的类加载器不同，那这两个类必定不相等。
 
 ### 双亲委派模型
 从JAVA开发者的角度看，类加载器可以分为3种：
 1. 启动类加载器：负责加载JAVA_HOME\lib目录中或者参数指定的路径中的类库
-2. 扩展类加载器：负责加载`<JAVA_HOME>/lib/ext`目录下或者由系统变量-Djava.ext.dir指定位路径中的类库
+2. 扩展类加载器：负责加载JAVA_HOME\lib\ext目录下或者由系统变量-Djava.ext.dir指定位路径中的类库
 3. 应用程序类加载器：负责加载用户类路径上所指定的类库。
-
-
-![img](https://img-blog.csdn.net/20170625231013755?watermark/2/text/aHR0cDovL2Jsb2cuY3Nkbi5uZXQvamF2YXplamlhbg==/font/5a6L5L2T/fontsize/400/fill/I0JBQkFCMA==/dissolve/70/gravity/SouthEast)
-
-图中展示的类加载器之间的层次关系称为类加载器的双亲委派模型。双亲委派模型要求除了顶层的启动器加载器外，其余的类加载器都应该有自己的父类加载器。
-
-
-**双亲委派模型的工作过程：如果一个类加载器收到了类加载的请求，它首先不会自己去尝试加载这个类，而是把这个请求委派给父类加载器去完成，每一个层次的类加载器都是如此，因此所有的加载请求最终都应该传送到顶层的启动类加载器中，只有当父加载器反馈自己无法完成这个加载请求时，子加载器才会尝试自己去加载。 **
-
-双亲委派模型的好处：JAVA类随着它的类加载器一起具备了一种带有优先级的层次关系。例如类java.lang.Object，无论哪一个类加载器要加载这个类，最终都是委派给处于模型最顶端的启动类加载器进行加载，因此Object类在程序的各种类加载器环境中都是同一个类。
 
 在JDK 9中，虚拟机的类加载器修改为：
 
@@ -294,9 +286,61 @@ jcmd   #几乎集合了jps、jstat、jinfo、jmap、jstack所有功能，一个�
 
 
 
-## 实现自定义的类加载器
 
-### 为什么要自定义类加载器
+![img](https://img-blog.csdn.net/20170625231013755?watermark/2/text/aHR0cDovL2Jsb2cuY3Nkbi5uZXQvamF2YXplamlhbg==/font/5a6L5L2T/fontsize/400/fill/I0JBQkFCMA==/dissolve/70/gravity/SouthEast)
+
+双亲委派模型要求除了顶层的启动器加载器外，其余的类加载器都应该有自己的父类加载器。
+
+
+**双亲委派模型的工作过程：如果一个类加载器收到了类加载的请求，它首先不会自己去尝试加载这个类，而是把这个请求委派给父类加载器去完成，每一个层次的类加载器都是如此，因此所有的加载请求最终都应该传送到顶层的启动类加载器中，只有当父加载器反馈自己无法完成这个加载请求时，子加载器才会尝试自己去加载。 **
+
+双亲委派模型的好处：JAVA类随着它的类加载器一起具备了一种带有优先级的层次关系。例如类java.lang.Object，无论哪一个类加载器要加载这个类，最终都是委派给处于模型最顶端的启动类加载器进行加载，因此Object类在程序的各种类加载器环境中都是同一个类。
+
+### 破坏双亲委派模型
+
+全盘委托：如果一个类引用了另一个类，那么这两个类的类加载器就必须是一样的。但是在SPI中，Java 核心库需要访问第三方的JAR包，而Java 核心库是由启动类加载器加载的，启动类加载器无法获取第三方JAR包，此时就需要使用ThreadContextClassLoader。ThreadContextClassLoader默认存放了`AppClassLoader`的引用。使用`Thread.currentThread().getContextClassLoader()`就可取出应用程序类加载器。这样启动类加载器调用应用程序类加载器就破坏了双亲委派模型。
+
+
+
+## ClassLoader类解析
+
+### loadClass()
+
+```java
+protected Class<?> loadClass(String name, boolean resolve) throws ClassNotFoundException {
+    synchronized (getClassLoadingLock(name)) {//加载类之前需要先上锁
+        //首先检查该类是否已被加载过，如果已被加载过，则直接返回对应的Class对象，这可以保证类不重复加载
+        Class<?> c = findLoadedClass(name);
+        if (c == null) {
+            try {
+                //如果该类没有被加载过，且类加载器存在父加载器，则调用父加载器的loadClass()方法加载类。
+                if (parent != null) {
+                    c = parent.loadClass(name, false);
+                } else {
+                    //如果父加载器为空，则调用启动类加载器来加载该类。
+                    c = findBootstrapClassOrNull(name);
+                }
+            } catch (ClassNotFoundException e) {}
+            //如果父类加载器或启动类加载器都无法加载该类，则调用本类加载器的 findClass() 方法查找该类
+            if (c == null) {
+                c = findClass(name);
+            }
+        }
+        if (resolve) {
+            resolveClass(c);
+        }
+        return c;
+    }
+}
+```
+
+
+
+
+
+
+
+### 实现自定义的类加载器
 
 实际工程中有些情况需要自定义类加载器，比如：
 
@@ -306,7 +350,7 @@ jcmd   #几乎集合了jps、jstat、jinfo、jmap、jstack所有功能，一个�
 
 3. 实现类的热部署。
 
-### 如何自定义类加载器
+
 
 继承抽象类ClassLoader，并重写其findClass()方法。
 
