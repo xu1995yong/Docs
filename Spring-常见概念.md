@@ -96,11 +96,11 @@ public class HelloServiceHandler implements InvocationHandler {
     public HelloServiceHandler(HelloService target) {
         this.helloService = target;
     }
-    //将事务处理的横切代码编织到业务代码中
+    //将事务处理的横切代码编织到业务代码中。 Method method是真实对象中调用方法的Method类
     public Object invoke(Object proxy, Method method, Object[] args) throws Throwable {
         System.out.println(proxy instanceof HelloService);
         System.out.println("开始事务" + helloService.getClass().getName() + "." + method.getName());
-        //通过java的反射机制间接调用
+        //通过java的反射机制间接调用。事先不知道调用目标对象的哪个方法
         Object obj = method.invoke(helloService, args);
         System.out.println("结束事务");
         return obj;
