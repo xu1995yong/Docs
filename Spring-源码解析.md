@@ -294,7 +294,7 @@ protected Object doCreateBean(String beanName , RootBeanDefinition mbd, Object[]
 ```
 ###### createBeanInstance()
 ```java
-protected BeanWrapper createBeanInstance(String beanName, RootBeanDefinition mbd,Object[] args) {
+protected BeanWrapper createBeanInstance(String beanName, RootBeanDefinition mbd, Object[] args) {
     // Make sure bean class is actually resolved at this point.
     Class<?> beanClass = resolveBeanClass(mbd, beanName);
 
@@ -353,8 +353,41 @@ protected BeanWrapper createBeanInstance(String beanName, RootBeanDefinition mbd
 
 ###### populateBean()
 ```java
+//AbstractAutowireCapableBeanFactory类
 protected void populateBean(String beanName, RootBeanDefinition mbd, @Nullable BeanWrapper bw) {
+    boolean continueWithPropertyPopulation = true;
+    //给InstantiationAwareBeanPostProcessor最后一次机会在属性设置前来改变bean
+    //如可以用来支持属性注入的类型
+    if (!mbd.isSynthetic() && hasInstantiationAwareBeanPostProcessors()) {
+        for (BeanPostProcessor bp : getBeanPostProcessors()) {
+            if (bp instanceof InstantiationAwareBeanPostProcessor) {
+                InstantiationAwareBeanPostProcessor ibp = (InstantiationAwareBeanPostProcessor) bp;
+                if (!ibp.postProcessAfterInstantiation(bw.getWrappedInstance(), beanName)) {
+                    continueWithPropertyPopulation = false;
+                    break;
+                }
+            }
+        }
+    }
+    //BeanPostProcessor使属性注入停止
+    if (!continueWithPropertyPopulation) {
+        return;
+    }
+
     PropertyValues pvs = (mbd.hasPropertyValues() ? mbd.getPropertyValues() : null);
+
+    if (mbd.getResolvedAutowireMode() == AUTOWIRE_BY_NAME || mbd.getResolvedAutowireMode() == AUTOWIRE_BY_TYPE) {
+        MutablePropertyValues newPvs = new MutablePropertyValues(pvs);
+        // Add property values based on autowire by name if applicable.
+        if (mbd.getResolvedAutowireMode() == AUTOWIRE_BY_NAME) {
+            autowireByName(beanName, mbd, bw, newPvs);
+        }
+        // Add property values based on autowire by type if applicable.
+        if (mbd.getResolvedAutowireMode() == AUTOWIRE_BY_TYPE) {
+            autowireByType(beanName, mbd, bw, newPvs);
+        }
+        pvs = newPvs;
+    }
     if (pvs != null) {
         applyPropertyValues(beanName, mbd, bw, pvs);
     }
