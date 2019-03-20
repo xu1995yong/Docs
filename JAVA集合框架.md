@@ -443,6 +443,16 @@ int size;
 
 ### 方法剖析
 
+#### hash()
+
+```java
+static final int hash(Object key) {
+    int h;
+    //为了解决Hash冲突问题，将高16位与低16位异或
+    return (key == null) ? 0 : (h = key.hashCode()) ^ (h >>> 16);
+}
+```
+
 #### put(K key, V value)方法
 
 ```java
@@ -454,7 +464,8 @@ final V putVal(int hash, K key, V value, boolean onlyIfAbsent,boolean evict) {
     if ((tab = table) == null || (n = tab.length) == 0)
         n = (tab = resize()).length;
     //根据key的hash值查找要存储的位置。如果p为null，说明该位置还没有存储元素，则直接在该位置保存值
-    if ((p = tab[i = (n - 1) & hash]) == null)
+    //(n - 1) & hash 等价于 取模运算，一个数对2^n取模 == 一个数和(2^n – 1)做按位与运算 
+    if ((p = tab[i = (n - 1) & hash]) == null) 
         tab[i] = newNode(hash, key, value, null);
     else {
         //否则检查在该位置的链表中是否有了该key,是先检查头结点是否为该key，如果不等于则在剩余的节点中寻找
@@ -529,8 +540,11 @@ final Node<K,V> getNode(int hash, Object key) {
 
 #### resize()方法
 
-此方法实现的思想为：1）原table为null的情况，如果为空，则开辟默认大小的空间。2）原table不为空的情况，则开辟原来空间的2倍。由于可能oldCap*2会大于最大容量，因此也对其这种溢出情况进行了处理。
-分配空间之后，将原数组中的元素拷贝到新数组中。
+此方法实现的思想为：
+
+1. 如果table为null，即table还未被初始化时，如果指定了初始化容量（容量必须为2的整数次幂），则按指定的大小初始化table并且计算新阈值，否则按照默认的大小（16）初始化table。
+
+2. 如果table不为空时，则先判断table的原来大小，如果原来table的容量大于要求的最大容量，则使阈值也等于最大容量，且不再对其扩容，而是直接返回原table。否则如果原来table的容量大于等于默认的初始化值，且翻倍后也不会超过最大值，则将table的容量扩大为原来的2倍。
 
 #### V remove(Object key)
 
@@ -611,13 +625,7 @@ Node<K,V> removeNode(int hash, Object key, Object value, boolean matchValue, boo
 
 当某条路径最短时，这条路径必然都是由黑色节点构成。当某条路径长度最长时，这条路径必然是由红色和黑色节点相间构成（性质4限定了不能出现两个连续的红色节点）。而性质5又限定了从任一节点到其每个叶子节点的所有路径必须包含相同数量的黑色节点。此时，在路径最长的情况下，路径上红色节点数量 = 黑色节点数量。该路径长度为两倍黑色节点数量，也就是最短路径长度的2倍。
 
-#### 红黑树的修正操作
-
-##### 左旋
-
-##### 右旋
-
-##### 节点颜色变换
+红黑树的修正操作包括：左旋、右旋、节点颜色变换
 
 
 

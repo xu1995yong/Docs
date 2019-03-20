@@ -13,34 +13,30 @@
 
 ### BeanFactory 和 ApplicationContext的区别
 
+BeanFactory是Spring中最低层的接口，提供了最简单的容器的功能。BeanFactory使用延迟加载所有的Bean，Bean在获取时才被实例化。
+
+ApplicationContext继承于BeanFactory，并且提供了更多高级功能，比如MessageSource（国际化资源接口）、ResourceLoader（资源加载接口）、ApplicationEventPublisher（应用事件发布接口）等。ApplicationContext在启动时就实例化所有的非延迟加载的Bean。
+
+ApplicationContext的三个实现类：
+
+- ClassPathXmlApplication：把上下文文件当成类路径资源
+- FileSystemXmlApplication：从文件系统中的XML文件载入上下文定义信息
+- XmlWebApplicationContext：从Web系统中的XML文件载入上下文定义信息
+
 
 
 
 
 ## SpringAOP相关概念
 
-1、
-
-对哪些方法进行拦截，拦截后怎么处理，这些关注点称之为横切关注点
-
-2、
-
-类是对物体特征的抽象，切面就是对横切关注点的抽象
-
-3、连接点（joinpoint）
-
-一段代码中的一些具有边界性质的点。Spring只支持方法类型的连接点，即仅能在方法调用前、方法调用后、方法抛出异常时等。
-
-4. 切入点（pointcut）
-
-对连接点进行拦截的定义
-
-5. 增强（advice）：要织入到目标类连接点上的代码，增强分为前置、后置、异常、最终、环绕增强五类。
-6. 切面（aspect）：
-7. 目标对象：增强逻辑的织入目标类。
-8. 织入（weave）：将增强添加到目标类的具体连接点上的过程。
-9. 引入（introduction）：一种特殊的增强，在不修改代码的前提下，引入可以在**运行期**为类动态地添加一些方法或字段
-10. 代理类：类被AOP织入增强后产生的代理类。
+1. 连接点（joinpoint）：一段代码中的一些具有边界性质的点。Spring只支持方法类型的连接点，即仅能在方法调用前、方法调用后、方法抛出异常时等。
+2. 切点（pointcut）：一系列需要增强的方法的集合。
+3. 增强（advice）：要织入到目标类切点上的代码，**增强分为前置、后置、异常、最终、环绕增强五类**。
+4. 切面（aspect）：切面是切点和增强的组合。
+5. 目标对象：增强逻辑的织入目标类。
+6. 织入（weave）：将增强添加到目标类的具体连接点上的过程。
+7. 引入（introduction）：一种特殊的增强，在不修改代码的前提下，引入可以在**运行期**为类动态地添加一些方法或字段
+8. 代理类：类被AOP织入增强后产生的代理类。
 
 
 

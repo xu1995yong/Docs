@@ -149,6 +149,14 @@ static final class ForwardingNode<K,V> extends Node<K,V> {
 }
 ```
 
+#### spread()
+
+```java
+static final int spread(int h) {
+    return (h ^ (h >>> 16)) & HASH_BITS;//将高16位与低16位异或，并保证结果为正数
+}
+```
+
 ####  put()
 
 首先当前线程会获取key对应的hashCode，之后当前线程进入for循环。在for循环中，当前线程首先判断Node数组是否已被初始化。如果已被初始化，当前线程会根据key的hashCode获取在Node数组中对应位置的元素，如果该位置元素为空则以CAS的方式将值插入该位置后跳出循环。

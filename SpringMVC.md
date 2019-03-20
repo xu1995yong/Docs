@@ -67,7 +67,7 @@ public WebApplicationContext initWebApplicationContext(ServletContext servletCon
     }
     //将根上下文保存到servletContext中
     servletContext.setAttribute(WebApplicationContext.ROOT_WEB_APPLICATION_CONTEXT_ATTRIBUTE, this.context);
-
+    //使用ContextClassLoader
     ClassLoader ccl = Thread.currentThread().getContextClassLoader();
     if (ccl == ContextLoader.class.getClassLoader()) {
         currentContext = this.context;
