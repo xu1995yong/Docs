@@ -6,26 +6,9 @@
 
 2. 无限制的创建线程的缺点：线程的生命周期开销高、资源消耗大、
 
-## 2. Executor框架介绍
 
-JDK1.5后引入的Executor框架将任务的提交和执行进行解耦，调用者只需要描述Task，然后提交给Executor即可。
 
-简单示例如下：
-
-```java
-ExecutorService executor = Executors.newFixedThreadPool(7);
-Callable task = new Callable() {
-	@Override
-    public Object call() throws Exception {
-        System.out.println("Hello");
-        return null;
-    }
-};
-Future future = executor.submit(task);
-System.out.println(future.get());
-```
-
-## 3. Executor框架的结构
+## 3. Executor框架结构
 
 Executor框架的类图如下所示：
 
@@ -88,6 +71,8 @@ TimeUnit unit)
 
 ### 2. 常见的ThreadPoolExecutor类型
 
+阿里开发手册中说明：**线程池不允许使用Executors创建，而是通过ThreadPoolExecutor的方式创建，因为Executors创建创建的3种线程池容易OOM。**
+
 #####  1. FixedThreadPool
 固定线程数的线程池，采用LinkedBlockingQueue任务队列。线程池中最多有 corePoolSize 个线程会处于活动状态。当线程数超过corePoolSize时，新任务会放入LinkedBlockingQueue中等待。如果某个线程由于未预期的Exception而结束，线程池会创建新线程来执行后续的任务。所有线程都会一直存于线程池中，直到显式的执行 ExecutorService.shutdown() 关闭。
 
@@ -96,7 +81,7 @@ TimeUnit unit)
 corePoolSize:nThreads
 maximumPoolSize:nThreads
 keepAliveTime:0L 
-BlockingQueue：LinkedBlockingQueue<Runnable>
+BlockingQueue：LinkedBlockingQueue<Runnable>//容易OOM
 ```
 
 
@@ -108,7 +93,7 @@ BlockingQueue：LinkedBlockingQueue<Runnable>
 	corePoolSize:1
     maximumPoolSize:1,
     keepAliveTime:0L,
-    BlockingQueue：LinkedBlockingQueue<Runnable>
+    BlockingQueue：LinkedBlockingQueue<Runnable>//容易OOM
 ```
 
 
@@ -117,7 +102,7 @@ BlockingQueue：LinkedBlockingQueue<Runnable>
 ```java
 //参数定义
 	corePoolSize:0, 
-	maximumPoolSize:Integer.MAX_VALUE,
+	maximumPoolSize:Integer.MAX_VALUE,//容易OOM
     keepAliveTime:60L, //意味着CachedThreadPool中的空闲线程等待新任务的最长时间为60秒
     BlockingQueue:SynchronousQueue<Runnable>
 ```
