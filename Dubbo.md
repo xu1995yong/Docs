@@ -177,27 +177,27 @@ RMI 协议采用 JDK 标准的 `java.rmi.*` 实现，采用阻塞式短连接和
 
 在集群调用失败时，Dubbo 提供了多种容错方案。
 
-### Failover Cluster
+**Failover Cluster**
 
 失败自动切换，当出现失败，重试其它服务器 [[1\]](https://dubbo.incubator.apache.org/zh-cn/docs/user/demos/fault-tolerent-strategy.html#fn1)。通常用于读操作，但重试会带来更长延迟。可通过 `retries="2"` 来设置重试次数(不含第一次)。
 
-### Failfast Cluster
+**Failfast Cluster**
 
 快速失败，只发起一次调用，失败立即报错。通常用于非幂等性的写操作，比如新增记录。
 
-### Failsafe Cluster
+**Failsafe Cluster**
 
 失败安全，出现异常时，直接忽略。通常用于写入审计日志等操作。
 
-### Failback Cluster
+**Failback Cluster**
 
 失败自动恢复，后台记录失败请求，定时重发。通常用于消息通知操作。
 
-### Forking Cluster
+**Forking Cluster**
 
 并行调用多个服务器，只要一个成功即返回。通常用于实时性要求较高的读操作，但需要浪费更多服务资源。可通过 `forks="2"` 来设置最大并行数。
 
-### Broadcast Cluster
+**Broadcast Cluster**
 
 广播调用所有提供者，逐个调用，任意一台报错则报错 [[2\]](https://dubbo.incubator.apache.org/zh-cn/docs/user/demos/fault-tolerent-strategy.html#fn2)。通常用于通知所有提供者更新缓存或日志等本地资源信息。
 
@@ -205,9 +205,516 @@ RMI 协议采用 JDK 标准的 `java.rmi.*` 实现，采用阻塞式短连接和
 
 
 
- 
 
+
+## Dubbo服务暴露过程
+
+首先在Spring容器启动时，XML文件中定义的<dubbo:service />标签会解析成ServiceBean对象，ServiceBean类实现了InitializingBean接口，在ServiceBean的初始化过程中，会调用InitializingBean接口的afterPropertiesSet()方法，来完成自身的初始化过程。
+
+ServiceBean类还实现了ApplicationListener接口并重写了onApplicationEvent()方法来监听ContextRefreshedEvent。当Spring容器初始化完成之后，会回调ServiceBean对象的onApplicationEvent()方法。
+
+在onApplicationEvent()方法中，如果判断当前ServiceBean没有暴露过，并且可以暴露，就会执行export()方法。在exprt()方法中又调用父类ServiceConfig的export()方法执行暴露过程。
+
+在ServiceConfig类的doExportUrls()方法中，首先会导入注册中心的url信息，之后遍历xml文件中该ServiceBean指定的所有协议，并对每个协议都执行服务暴露。
+
+在针对每个协议执行服务暴露时，首先会根据scope的值，进行服务暴露。默认scopse为null，即同时执行本地暴露和远程暴露。在执行远程暴露过程中，首先会根据当前ServiceBean的具体实现对象ref、服务的接口以及registryUrl创建一个Invoker，然后调用Protocol类的export()方法来暴露服务。
+
+首先调用RegistryProtocol类的export方法，在该export()方法中又首先调用DubboProtocol类的export()方法。DubboProtocol类的export()方法中会创建Netty服务器，并监听Dubbo协议指定的端口。之后返回到RegistryProtocol类的export方法，该方法会将当前服务的url注册到zookeeper注册中心。这样就完成了整个的服务暴露过程。
+
+
+
+### ServiceBean类
+
+#### onApplicationEvent()
+
+```java
+//ServiceBean类重写了ApplicationListener接口的onApplicationEvent()方法
+public void onApplicationEvent(ContextRefreshedEvent event) {
+    if (!isExported() && !isUnexported()) {
+        export();
+    }
+}
+```
+
+#### export()
+
+```java
+public void export() {
+    super.export();//调用父类ServiceConfig的export()方法
+    publishExportEvent();
+}
+```
+
+### ServiceConfig类
+
+####  export()
+
+```java
+//ServiceConfig中的export()方法
+public synchronized void export() {
+    if (delay != null && delay > 0) {
+        delayExportExecutor.schedule(this::doExport, delay, TimeUnit.MILLISECONDS);
+    } else {
+        doExport();
+    }
+}
+```
+
+####  doExport()
+
+```java
+protected synchronized void doExport() {
+    exported = true;
+    if (path == null || path.length() == 0) {
+        path = interfaceName;
+    }
+    ProviderModel providerModel = new ProviderModel(getUniqueServiceName(), ref, interfaceClass);
+    ApplicationModel.initProviderModel(getUniqueServiceName(), providerModel);
+    doExportUrls();
+}
+```
+
+#### doExportUrls()
+
+ ```java
+private void doExportUrls() {
+    List<URL> registryURLs = loadRegistries(true);//导入注册中心的url信息
+    //遍历xml文件中该服务指定的所有协议，执行服务暴露
+    for (ProtocolConfig protocolConfig : protocols) {
+        doExportUrlsFor1Protocol(protocolConfig, registryURLs);
+    }
+}
+ ```
+
+#### doExportUrlsFor1Protocol()
+
+```java
+private void doExportUrlsFor1Protocol(ProtocolConfig protocolConfig, List<URL> registryURLs) {
+    String name = protocolConfig.getName(); //默认采用Dubbo协议
+    if (name == null || name.length() == 0) {
+        name = Constants.DUBBO;
+    }
+    //省略一系列参数设置
+    //省略
+
+    //根据参数生成url
+    URL url = new URL(name, host, port, (contextPath == null || contextPath.length() == 0 ? "" : contextPath + "/") + path, map);
+
+    if (ExtensionLoader.getExtensionLoader(ConfiguratorFactory.class)
+        .hasExtension(url.getProtocol())) {
+        url = ExtensionLoader.getExtensionLoader(ConfiguratorFactory.class)
+            .getExtension(url.getProtocol()).getConfigurator(url).configure(url);
+    }
+    //根据scope的值，进行服务暴露。默认scopse为null，即同时执行本地暴露和远程暴露。
+    String scope = url.getParameter(Constants.SCOPE_KEY);
+    //如果scope配置为none则不暴露，只有scope的值不等于none时，才执行暴露
+    if (!Constants.SCOPE_NONE.equalsIgnoreCase(scope)) {
+        //当scope的值不等于remote时，执行本地暴露
+        if (!Constants.SCOPE_REMOTE.equalsIgnoreCase(scope)) {
+            exportLocal(url);
+        }
+        //当scope的值不等于local时，执行远程暴露
+        if (!Constants.SCOPE_LOCAL.equalsIgnoreCase(scope)) {
+            if (registryURLs != null && !registryURLs.isEmpty()) {
+                for (URL registryURL : registryURLs) {
+                    url = url.addParameterIfAbsent(Constants.DYNAMIC_KEY, registryURL.getParameter(Constants.DYNAMIC_KEY));
+
+                    // For providers, this is used to enable custom proxy to generate invoker
+                    String proxy = url.getParameter(Constants.PROXY_KEY);
+                    if (StringUtils.isNotEmpty(proxy)) {
+                        registryURL = registryURL.addParameter(Constants.PROXY_KEY, proxy);
+                    }
+                    //根据服务的具体实现对象ref、服务的接口以及registryUrl获取Invoker
+                    //invoker是对服务的具体实现的代理
+                    Invoker<?> invoker = proxyFactory.getInvoker(ref, (Class) interfaceClass, registryURL.addParameterAndEncoded(Constants.EXPORT_KEY, url.toFullString()));
+                    DelegateProviderMetaDataInvoker wrapperInvoker = new DelegateProviderMetaDataInvoker(invoker, this);
+                    //调用Protocol生成的适配类的export方法来暴露服务
+                    Exporter<?> exporter = protocol.export(wrapperInvoker);
+                    exporters.add(exporter);
+                }
+            } else {
+                Invoker<?> invoker = proxyFactory.getInvoker(ref, (Class) interfaceClass, url);
+                DelegateProviderMetaDataInvoker wrapperInvoker = new DelegateProviderMetaDataInvoker(invoker, this);
+
+                Exporter<?> exporter = protocol.export(wrapperInvoker);
+                exporters.add(exporter);
+            }
+
+            MetadataReportService metadataReportService = null;
+            if ((metadataReportService = getMetadataReportService()) != null) {
+                metadataReportService.publishProvider(url);
+            }
+        }
+    }
+    this.urls.add(url);
+}
+```
+
+### RegistryProtocol类
+
+#### export()
+
+```java
+//RegistryProtocol类
+public <T> Exporter<T> export(final Invoker<T> originInvoker) throws RpcException {
+    URL registryUrl = getRegistryUrl(originInvoker);
+    URL providerUrl = getProviderUrl(originInvoker);
+
+    final URL overrideSubscribeUrl = getSubscribedOverrideUrl(providerUrl);
+    final OverrideListener overrideSubscribeListener = new OverrideListener(overrideSubscribeUrl, originInvoker);
+    overrideListeners.put(overrideSubscribeUrl, overrideSubscribeListener);
+
+    providerUrl = overrideUrlWithConfig(providerUrl, overrideSubscribeListener);
+    //暴露服务
+    final ExporterChangeableWrapper<T> exporter = doLocalExport(originInvoker, providerUrl);
+    final Registry registry = getRegistry(originInvoker);
+    final URL registeredProviderUrl = getRegisteredProviderUrl(providerUrl, registryUrl);
+    //
+    ProviderInvokerWrapper<T> providerInvokerWrapper = ProviderConsumerRegTable.registerProvider(originInvoker,registryUrl, registeredProviderUrl);
+    //to judge if we need to delay publish
+    boolean register = registeredProviderUrl.getParameter("register", true);
+    if (register) {
+        //将服务的url注册到zookeeper注册中心
+        register(registryUrl, registeredProviderUrl);
+        providerInvokerWrapper.setReg(true);
+    }
+    registry.subscribe(overrideSubscribeUrl, overrideSubscribeListener);
+    exporter.setRegisterUrl(registeredProviderUrl);
+    exporter.setSubscribeUrl(overrideSubscribeUrl);
+    return new DestroyableExporter<>(exporter);
+}
+```
+
+#### doLocalExport()
+
+```java
+private <T> ExporterChangeableWrapper<T> doLocalExport(final Invoker<T> originInvoker, URL providerUrl) {
+    String key = getCacheKey(originInvoker);
+    ExporterChangeableWrapper<T> exporter = (ExporterChangeableWrapper<T>) bounds.get(key);
+    if (exporter == null) {
+        synchronized (bounds) {
+            exporter = (ExporterChangeableWrapper<T>) bounds.get(key);
+            if (exporter == null) {
+                final Invoker<?> invokerDelegete = new InvokerDelegate<T>(originInvoker, providerUrl);
+                exporter = new ExporterChangeableWrapper<T>((Exporter<T>) protocol.export(invokerDelegete), originInvoker);//调用DubboProtocol的export()方法
+                bounds.put(key, exporter);
+            }
+        }
+    }
+    return exporter;
+}
+```
+
+### DubboProtocol类
+
+#### export()
+
+```java
+//DubboProtocol类
+public <T> Exporter<T> export(Invoker<T> invoker) throws RpcException {
+    URL url = invoker.getUrl();
+    String key = serviceKey(url);
+    DubboExporter<T> exporter = new DubboExporter<T>(invoker, key, exporterMap);
+    exporterMap.put(key, exporter);
+    //export an stub service for dispatching event
+    Boolean isStubSupportEvent = url.getParameter(Constants.STUB_EVENT_KEY, Constants.DEFAULT_STUB_EVENT);
+    Boolean isCallbackservice = url.getParameter(Constants.IS_CALLBACK_SERVICE, false);
+    if (isStubSupportEvent && !isCallbackservice) {
+        String stubServiceMethods = url.getParameter(Constants.STUB_EVENT_METHODS_KEY);
+        if (stubServiceMethods == null || stubServiceMethods.length() == 0) {
+
+        } else {
+            stubServiceMethodsMap.put(url.getServiceKey(), stubServiceMethods);
+        }
+    }
+    openServer(url);//创建Netty服务器，并监听指定的端口
+    optimizeSerialization(url);
+    return exporter;
+}
+```
+
+
+
+## Dubbo服务引用过程
+
+在消费端的Spring容器初始化时，会将XML文件中定义的 `<dubbo:reference/>`标签解析为ReferenceBean类的对象。而ReferenceBean类实现了FactoryBean接口，并重写了其getObject()方法，即ReferenceBean是一个FactoryBean。当在Spring容器中获取以`<dubbo:reference/>` 标签的id属性为名称的bean时，就会调用ReferenceBean类重写的getObject()方法返回该FactoryBean创建的对象。
+
+在ReferenceBean类的getObject()方法中，调用父类ReferenceConfig类的get()方法来获取指定的Bean。在get()方法中会调用init()方法。在init()方法中，首先会进行相应的配置解析比如当前应用名、注册中心地址、当前服务的接口名及接口内的方法名、服务消费者 ip 地址等，并将配置存储到 Hashmap 中，之后会调用createProxy()方法并传入存储了相应配置的map来创建代理对象。
+
+在createProxy()方法中，首先会根据 url 的协议、scope值以及 injvm 等参数检测是否是本地引用，如果不是则执行远程引用过程。
+
+首先会加载注册中心的url地址，如果未配置注册中心，就会抛出异常。之后会调用RegistryProtocol的 refer()方法构建 Invoker 实例。Invoker 是 Dubbo 的核心模型，代表一个可执行体。在服务消费方，Invoker 用于执行远程调用。
+
+在RegistryProtocol的refer()方法中，首先会获取注册中心实例，之后调用 doRefer()方法 继续执行服务引用逻辑
+
+
+
+
+
+### ReferenceBean类
+
+#### getObject()
+
+```java
+//ReferenceBean类
+public Object getObject() {
+    return get();//调用父类ReferenceConfig类的get()方法
+}
+```
+
+### ReferenceConfig类
+
+#### get()
+
+```java
+//ReferenceConfig类
+public synchronized T get() {
+    checkAndUpdateSubConfigs();
+    if (destroyed) {
+        throw new IllegalStateException("Already destroyed!");
+    }
+    if (ref == null) {
+        init();
+    }
+    return ref;
+}
+```
+
+#### init()
+
+```java
+//ReferenceConfig类
+private void init() {
+    initialized = true;
+    checkStubAndLocal(interfaceClass);
+    checkMock(interfaceClass);
  
+    //参数解析
+    Map<String, Object> attributes = null;
+    if (methods != null && !methods.isEmpty()) {
+        attributes = new HashMap<String, Object>();
+        for (MethodConfig methodConfig : methods) {
+            appendParameters(map, methodConfig, methodConfig.getName());
+            String retryKey = methodConfig.getName() + ".retry";
+            if (map.containsKey(retryKey)) {
+                String retryValue = map.remove(retryKey);
+                if ("false".equals(retryValue)) {
+                    map.put(methodConfig.getName() + ".retries", "0");
+                }
+            }
+            attributes.put(methodConfig.getName(), convertMethodConfig2AyncInfo(methodConfig));
+        }
+    }
+    //获取服务消费者 ip 地址
+    String hostToRegistry = ConfigUtils.getSystemProperty(Constants.DUBBO_IP_TO_REGISTRY);
+    if (hostToRegistry == null || hostToRegistry.length() == 0) {
+        hostToRegistry = NetUtils.getLocalHost();
+    } 
+    map.put(Constants.REGISTER_IP_KEY, hostToRegistry);
+    //
+    ref = createProxy(map);
+
+    ConsumerModel consumerModel = new ConsumerModel(getUniqueServiceName(), interfaceClass, ref, interfaceClass.getMethods(), attributes);
+    ApplicationModel.initConsumerModel(getUniqueServiceName(), consumerModel);
+}
+```
+
+#### createProxy()
+
+```java
+private T createProxy(Map<String, String> map) {
+    URL tmpUrl = new URL("temp", "localhost", 0, map);
+    final boolean isJvmRefer;
+    //根据 url 的协议、scope 以及 injvm 等参数检测是否需要本地引用
+    if (isInjvm() == null) {
+        if (url != null && url.length() > 0) {  
+            isJvmRefer = false;
+        } else {
+            isJvmRefer = InjvmProtocol.getInjvmProtocol().isInjvmRefer(tmpUrl);
+        }
+    } else {
+        isJvmRefer = isInjvm();
+    }
+    if (isJvmRefer) {
+        URL url = new URL(Constants.LOCAL_PROTOCOL, NetUtils.LOCALHOST, 0, interfaceClass.getName()).addParameters(map);
+        invoker = refprotocol.refer(interfaceClass, url);
+    } else {
+        if (url != null && url.length() > 0) { // user specified URL, could be peer-to-peer address, or register center's address.
+            String[] us = Constants.SEMICOLON_SPLIT_PATTERN.split(url);
+            if (us != null && us.length > 0) {
+                for (String u : us) {
+                    URL url = URL.valueOf(u);
+                    if (url.getPath() == null || url.getPath().length() == 0) {
+                        url = url.setPath(interfaceName);
+                    }
+                    if (Constants.REGISTRY_PROTOCOL.equals(url.getProtocol())) {
+                        urls.add(url.addParameterAndEncoded(Constants.REFER_KEY, StringUtils.toQueryString(map)));
+                    } else {
+                        urls.add(ClusterUtils.mergeUrl(url, map));
+                    }
+                }
+            }
+        } else { // assemble URL from register center's configuration
+            checkRegistry();
+            List<URL> us = loadRegistries(false);
+            if (us != null && !us.isEmpty()) {
+                for (URL u : us) {
+                    URL monitorUrl = loadMonitor(u);
+                    if (monitorUrl != null) {
+                        map.put(Constants.MONITOR_KEY, URL.encode(monitorUrl.toFullString()));
+                    }
+                    urls.add(u.addParameterAndEncoded(Constants.REFER_KEY, StringUtils.toQueryString(map)));
+                }
+            }
+
+        }
+
+        if (urls.size() == 1) {
+            invoker = refprotocol.refer(interfaceClass, urls.get(0));
+        } else {
+            List<Invoker<?>> invokers = new ArrayList<Invoker<?>>();
+            URL registryURL = null;
+            for (URL url : urls) {
+                invokers.add(refprotocol.refer(interfaceClass, url));
+                if (Constants.REGISTRY_PROTOCOL.equals(url.getProtocol())) {
+                    registryURL = url; // use last registry url
+                }
+            }
+            if (registryURL != null) { // registry url is available
+                // use RegistryAwareCluster only when register's cluster is available
+                URL u = registryURL.addParameter(Constants.CLUSTER_KEY, RegistryAwareCluster.NAME);
+                // The invoker wrap relation would be: RegistryAwareClusterInvoker(StaticDirectory) -> FailoverClusterInvoker(RegistryDirectory, will execute route) -> Invoker
+                invoker = cluster.join(new StaticDirectory(u, invokers));
+            } else { // not a registry url, must be direct invoke.
+                invoker = cluster.join(new StaticDirectory(invokers));
+            }
+        }
+    }
+
+    Boolean c = check;
+    if (c == null && consumer != null) {
+        c = consumer.isCheck();
+    }
+    if (c == null) {
+        c = true; // default true
+    }
+    if (c && !invoker.isAvailable()) {
+        // make it possible for consumer to retry later if provider is temporarily unavailable
+        initialized = false;
+
+    }
+
+    MetadataReportService metadataReportService = null;
+    if ((metadataReportService = getMetadataReportService()) != null) {
+        URL consumerURL = new URL(Constants.CONSUMER_PROTOCOL, map.remove(Constants.REGISTER_IP_KEY), 0, map.get(Constants.INTERFACE_KEY), map);
+        metadataReportService.publishConsumer(consumerURL);
+    }
+    // create service proxy
+    return (T) proxyFactory.getProxy(invoker);
+}
+```
+
+### RegistryProtocol类
+
+#### refer()
+
+```java
+//RegistryProtocol
+public <T> Invoker<T> refer(Class<T> type, URL url) throws RpcException {
+    url = url.setProtocol(url.getParameter(REGISTRY_KEY, DEFAULT_REGISTRY)).removeParameter(REGISTRY_KEY);
+    //根据url获取注册中心对象
+    Registry registry = registryFactory.getRegistry(url);
+    if (RegistryService.class.equals(type)) {
+        return proxyFactory.getInvoker((T) registry, type, url);
+    }
+
+    // group="a,b" or group="*"
+    Map<String, String> qs = StringUtils.parseQueryString(url.getParameterAndDecoded(REFER_KEY));
+    String group = qs.get(Constants.GROUP_KEY);
+    if (group != null && group.length() > 0) {
+        if ((COMMA_SPLIT_PATTERN.split(group)).length > 1 || "*".equals(group)) {
+            return doRefer(getMergeableCluster(), registry, type, url);
+        }
+    }
+    return doRefer(cluster, registry, type, url);
+}
+```
+
+#### doRefer()
+
+```java
+private <T> Invoker<T> doRefer(Cluster cluster, Registry registry, Class<T> type, URL url) {
+    RegistryDirectory<T> directory = new RegistryDirectory<T>(type, url);
+    directory.setRegistry(registry);
+    directory.setProtocol(protocol);
+    // all attributes of REFER_KEY
+    Map<String, String> parameters = new HashMap(directory.getUrl().getParameters());
+    URL subscribeUrl = new URL(CONSUMER_PROTOCOL, parameters.remove(REGISTER_IP_KEY), 0, type.getName(), parameters);
+    //向注册中心注册自己
+    if (!ANY_VALUE.equals(url.getServiceInterface()) && url.getParameter(REGISTER_KEY, true)) {
+        registry.register(getRegisteredConsumerUrl(subscribeUrl, url));
+    }
+    directory.buildRouterChain(subscribeUrl);
+    //从注册中心订阅服务
+    directory.subscribe(subscribeUrl.addParameter(CATEGORY_KEY,PROVIDERS_CATEGORY + "," + CONFIGURATORS_CATEGORY + "," + ROUTERS_CATEGORY));
+
+    Invoker invoker = cluster.join(directory);
+    ProviderConsumerRegTable.registerConsumer(invoker, url, subscribeUrl, directory);
+    return invoker;
+}
+```
+
+
+
+
+
+### DubboProtocol类
+
+#### refer()
+
+```java
+//DubboProtocol类
+public <T> Invoker<T> refer(Class<T> serviceType, URL url) throws RpcException {
+    optimizeSerialization(url);
+    // create rpc invoker.
+    DubboInvoker<T> invoker = new DubboInvoker<T>(serviceType, url, getClients(url), invokers);
+    invokers.add(invoker);
+    return invoker;
+}
+```
+
+
+
+```java
+private ExchangeClient[] getClients(URL url) {
+    // whether to share connection
+    boolean service_share_connect = false;
+    int connections = url.getParameter(Constants.CONNECTIONS_KEY, 0);
+    // if not configured, connection is shared, otherwise, one connection for one service
+    if (connections == 0) {
+        service_share_connect = true;
+        connections = 1;
+    }
+
+    ExchangeClient[] clients = new ExchangeClient[connections];
+    for (int i = 0; i < clients.length; i++) {
+        if (service_share_connect) {
+            clients[i] = getSharedClient(url);
+        } else {
+            clients[i] = initClient(url);
+        }
+    }
+    return clients;
+}
+```
+
+
+
+
+
+
+
+
 
 6 dubbo中的rpc如何实现。
 
@@ -235,11 +742,7 @@ Dubbo启动的时候支持几种配置方式？
 
 底层原理，通信机制，缓存列表，dubbo的重试机制的各种区别，使用场景，如何选择，dubbo的负载均衡策略的各种比对，
 
-现场写了一段随机加权的源码分析给面试官看，dubbo的spi机制等问题。
-
-2、Dubbo 注册中心怎么实现，zookeeper了解吗，介绍下，zookeeper持久化节点和临时节点，注册中心怎么与服务方保持心跳的
-
-
+ 
 
 
 

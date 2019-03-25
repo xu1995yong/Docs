@@ -540,23 +540,46 @@ protected void populateBean(String beanName, RootBeanDefinition mbd, @Nullable B
 ```
 ###### initializeBean()
 ```java
-protected Object initializeBean(final String beanName, final Object bean, @Nullable RootBeanDefinition mbd) {
+protected Object initializeBean(final String beanName, final Object bean,RootBeanDefinition mbd) {
     invokeAwareMethods(beanName, bean);//调用bean实现的aware接口的方法
     //调用BeanPostProcessor的postProcessBeforeInitialization()方法
     wrappedBean = applyBeanPostProcessorsBeforeInitialization(wrappedBean, beanName);
     //调用InitializingBean的afterPropertiesSet()方法
     //之后调用配置文件中<bean>的init-method属性指定的初始化方法
     invokeInitMethods(beanName, wrappedBean, mbd);
-
-    // 调用BeanPostProcessor的postProcessAfterInitialization()方法
-    wrappedBean = applyBeanPostProcessorsAfterInitialization(wrappedBean, beanName);
-
-    return wrappedBean;
+    Object wrappedBean = bean;
+    if (mbd == null || !mbd.isSynthetic()) {
+        wrappedBean = applyBeanPostProcessorsBeforeInitialization(wrappedBean, beanName);
+    }
+    try {
+        // 调用BeanPostProcessor的postProcessAfterInitialization()方法
+        wrappedBean = applyBeanPostProcessorsAfterInitialization(wrappedBean, beanName);
+    }
+    if (mbd == null || !mbd.isSynthetic()) {
+        wrappedBean = applyBeanPostProcessorsAfterInitialization(wrappedBean, beanName);
+    }
+    return wrappedBean
 }
-
 ```
 
+###### applyBeanPostProcessorsAfterInitialization()
 
+```java
+//AbstractAutowireCapableBeanFactory
+public Object applyBeanPostProcessorsAfterInitialization(Object existingBean, String beanName)
+    throws BeansException {
+
+    Object result = existingBean;
+    for (BeanPostProcessor processor : getBeanPostProcessors()) {
+        Object current = processor.postProcessAfterInitialization(result, beanName);
+        if (current == null) {
+            return result;
+        }
+        result = current;
+    }
+    return result;
+}
+```
 
 
 
@@ -725,56 +748,9 @@ protected void addSingleton(String beanName, Object singletonObject) {
 
 ### 生成代理对象
 
-在bean的初始化过程中，会调用bean对应的BeanPostProcessors。AbstractAutoProxyCreator是BeanPostProcessors的子类，重写了接口的postProcessAfterInitialization方法。在该方法中会对bean进行包装，也就是创建该bean的代理对象。
+在bean的初始化过程中，会调用bean对应的BeanPostProcessors。AbstractAutoProxyCreator是BeanPostProcessors的子类，重写了BeanPostProcessors接口的postProcessAfterInitialization方法。在该方法中会对bean进行包装，也就是创建该bean的代理对象。
 
 创建代理的流程为：首先获取所有的Advisor，然后调用AbstractAutoProxyCreator对象的createProxy()方法。在该方法中，首先创建一个proxyFactory对象，然后调用proxyFactory对象的getProxy()方法，在该方法中，获取了JdkDynamicAopProxy对象，该对象实现了JDK的InvocationHandler接口，所以能使用动态代理创建代理对象。
-
-#### initializeBean()
-
-```java
-//AbstractAutowireCapableBeanFactory
-protected Object initializeBean(final String beanName, final Object bean, RootBeanDefinition mbd) {
-    if (System.getSecurityManager() != null) {
-        AccessController.doPrivileged((PrivilegedAction<Object>) () -> {
-            invokeAwareMethods(beanName, bean);
-            return null;
-        }, getAccessControlContext());
-    }
-    else {
-        invokeAwareMethods(beanName, bean);
-    }
-    Object wrappedBean = bean;
-    if (mbd == null || !mbd.isSynthetic()) {
-        wrappedBean = applyBeanPostProcessorsBeforeInitialization(wrappedBean, beanName);
-    }
-    try {
-        invokeInitMethods(beanName, wrappedBean, mbd);
-    }
-    if (mbd == null || !mbd.isSynthetic()) {
-        wrappedBean = applyBeanPostProcessorsAfterInitialization(wrappedBean, beanName);
-    }
-    return wrappedBean;
-}
-```
-
-#### applyBeanPostProcessorsAfterInitialization()
-
-```java
-//AbstractAutowireCapableBeanFactory
-public Object applyBeanPostProcessorsAfterInitialization(Object existingBean, String beanName)
-    throws BeansException {
-
-    Object result = existingBean;
-    for (BeanPostProcessor processor : getBeanPostProcessors()) {
-        Object current = processor.postProcessAfterInitialization(result, beanName);
-        if (current == null) {
-            return result;
-        }
-        result = current;
-    }
-    return result;
-}
-```
 
 #### postProcessAfterInitialization()
 

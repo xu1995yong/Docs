@@ -1,20 +1,18 @@
 ## Linux中的I/O模型
 
-### 同步IO
-
 两个阻塞过程
 
 - 用户进程执行recv()/recvfrom()系统调用，kernel就开始了IO的第一个阶段：准备数据（对于网络IO来说，很多时候数据在一开始还没有到达。比如，还没有收到一个完整的UDP包。这个时候kernel就要等待足够的数据到来）。这个过程中用户进程会被阻塞。
 
 - 第二个阶段：当kernel一直等到数据准备好了，它就会将数据从kernel中拷贝到用户内存，然后kernel返回结果，这个过程中用户进程同样要阻塞。
 
-#### 阻塞IO（blokingIO）
+### 阻塞IO（blokingIO）
 
 在阻塞IO中，用户空间的进程执行系统调用recvfrom，然后进程在该处被阻塞。直到数据准备好并且从内核复制到用户进程的缓冲区，此时recvfrom调用返回，进程才能继续向下执行。
 
 ![è¾å¥å¾çè¯´æ](https://static.oschina.net/uploads/img/201604/20150405_VKYH.png)
 
-#### 非阻塞IO（non-blockingIO）
+### 非阻塞IO（non-blockingIO）
 
 在非阻塞IO模型中，用户进程执行recvfrom调用，如果内核中的数据没有准备好，此时recvfrom调用立刻返回一个错误。所以说用户进程在此处不需要等待。recvfrom返回之后，用户进程可以干点别的事情，然后再发起recvfrom系统调用，重复上面的过程，直到recvform返回数据已经准备好，再拷贝数据到用户进程。这个过程通常被称之为轮询。
 
@@ -22,7 +20,7 @@
 
 ![è¾å¥å¾çè¯´æ](https://static.oschina.net/uploads/img/201604/20152818_DXcj.png)
 
-#### 多路复用IO（multiplexingIO）
+### 多路复用IO（multiplexingIO）
 
 IO多路复用模型有两个特别的系统调用select/poll/epoll。
 
@@ -67,35 +65,39 @@ IO多路复用模型有两个特别的系统调用select/poll/epoll。
 
 JDK1.4新增了java.nio包，提供了进行异步IO的api和类库。
 
-#### 缓冲区
+**缓冲区**
 
 实质是一个数组，提供了对存储数据的结构化访问和读写位置信息维护的功能。
 
-#### 通道
+1. MappedByteBuffer
+
+2. DirectByteBuffer
+
+
+
+通道
 
 网络数据通过channel读取和写入。通道与流的不同在于通道是双向的，支持阻塞和非阻塞两种模式。Channel主要分为网络读写的SelectableChannel和用于文件操作的FileChannel，SocketChannel和ServerSocketChannel都是SelectableChannel的子类。
 
 
 
-
-
-##### ServerSocketChannel
+ServerSocketChannel
 
 
 
-#### 多路复用器
+多路复用器
 
 多路复用器提供了选择已经就绪的任务的能力。Selector会轮询注册在其上的channel，如果某个channel发生读写事件，这个channel就处于就绪状态，会被Selector轮询出来，然后通过SelectionKey获取已经就绪的channel集合，进行后续的I/O操作。
 
 一个多路复用器Selector可以同时轮询多个Channel，一个线程负责Selector的轮询，就可以接入成千上万个客户端。
 
-#### JAVA NIO中的新特性
 
-##### 1. MappedByteBuffer
 
-##### 2. DirectByteBuffer
+NIO的一般流程
 
-### AIO
+
+
+### AIO模型
 
 JDK1.7将原来的NIO类库进行了升级，实现了真正意义上的异步非阻塞I/O。它不需要通过多路复用器Selector对注册的通道进行轮训操作即可实现异步读写，从而简化了NIO的编程模型。
 
