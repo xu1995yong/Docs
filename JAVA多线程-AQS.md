@@ -1,11 +1,9 @@
 
 ## AbstractQueuedSynchronizer队列同步器
 
-AbstractQueuedSynchronizer是用来构建锁或者其他同步组件的基础框架。AQS框架提供了一套通用的机制来管理同步状态、阻塞/唤醒线程、管理等待队列。
+AbstractQueuedSynchronizer是用来构建锁或者其他同步组件的基础框架。AQS框架提供了一套通用的机制来管理同步状态、阻塞/唤醒线程、管理等待队列。如果需要自定义一个同步组件，只需在自定义同步组件中实现一个静态内部类并继承AbstractQueuedSynchronizer。之后将组件的操作代理到该AbstractQueuedSynchronizer的子类中即可。
 
 ### AbstractQueuedSynchronizer的使用
-
-AbstractQueuedSynchronizer主要用来构建同步组件。如果需要自定义一个同步组件，只需在自定义同步组件中实现一个静态内部类并继承AbstractQueuedSynchronizer。之后将组件的操作代理到该AbstractQueuedSynchronizer的子类中即可。具体的使用可参考ReentrantLock。
 
 由于AbstractQueuedSynchronizer的设计是基于模板方法模式的，所以使用者需要重写AbstractQueuedSynchronizer类中指定的方法。AbstractQueuedSynchronizer提供的模板方法会调用使用者重写的方法。
 
@@ -183,7 +181,7 @@ private final boolean parkAndCheckInterrupt() {
 
 ### 独占式同步状态的释放
 
-思想：首先调用tryRelease(arg)尝试释放，如果释放成功，则判断当前节点的waitStatus 是否为零，如果状态不为0表明需要唤醒后继结点，则当前线程从等待队列的队尾开始向前寻找，找到队列中第一个没有被取消的结点，找到后调用LockSupport.unpark(s.thread)唤醒该线程，之后状态释放结束。
+思想：首先调用tryRelease(arg)尝试释放，如果释放成功，则判断当前节点的waitStatus 是否为零，如果状态不为零表明需要唤醒后继结点，则当前线程从等待队列的队尾开始向前寻找，找到队列中第一个没有被取消的结点，找到后调用LockSupport.unpark(s.thread)唤醒该线程，之后状态释放结束。
 
 #### release(int arg)方法
 
