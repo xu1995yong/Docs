@@ -134,6 +134,8 @@ bf.exists：查询元素是否存在，
 
 ### 发布订阅
 
+Redis 通过 [PUBLISH](http://redis.readthedocs.org/en/latest/pub_sub/publish.html#publish) 、 [SUBSCRIBE](http://redis.readthedocs.org/en/latest/pub_sub/subscribe.html#subscribe) 等命令实现了订阅与发布模式， 这个功能提供两种信息机制， 分别是订阅/发布到频道和订阅/发布到模式
+
 ```bash
 
 ```
@@ -146,7 +148,21 @@ bf.exists：查询元素是否存在，
 
 ### Redis事务的实现
 
+Redis 通过 [MULTI](http://redis.readthedocs.org/en/latest/transaction/multi.html#multi) 、 [DISCARD](http://redis.readthedocs.org/en/latest/transaction/discard.html#discard) 、 [EXEC](http://redis.readthedocs.org/en/latest/transaction/exec.html#exec) 和 [WATCH](http://redis.readthedocs.org/en/latest/transaction/watch.html#watch) 四个命令来实现事务功能。
+
+[MULTI](http://redis.readthedocs.org/en/latest/transaction/multi.html#multi) 命令开始一个事务，事务开启后，服务器会将收到的来自客户端的命令放进事务队列中，最后由 [EXEC](http://redis.readthedocs.org/en/latest/transaction/exec.html#exec) 命令一并执行事务队列中的所有命令。
+
+[WATCH](http://redis.readthedocs.org/en/latest/transaction/watch.html#watch) 命令用于在事务开始之前监视任意数量的键，当调用 [EXEC](http://redis.readthedocs.org/en/latest/transaction/exec.html#exec) 命令执行事务时， 如果任意一个被监视的键已经被其他客户端修改， 那整个事务不再执行， 直接返回失败。
+
 ### 跳跃列表的实现
+
+跳跃列表是一种随机化数据结构，实质对有序的链表增加上附加的前进链接，增加是以随机化的方式进行的，所以在列表中的查找可以快速的跳过部分列表元素。
+
+比如在查找的过程中，可以先通过每个节点的最上层的指针先进行查找，如果未找到，则对下面一层的指针进行查找，若仍未找到，缩小范围继续查找。这样子就能跳过大部分的节点，缩短查询时间。
+
+查找、插入和删除操作的时间复杂度都为: **O(logn)**
+
+![img](https://img-blog.csdn.net/20150530162529554?watermark/2/text/aHR0cDovL2Jsb2cuY3Nkbi5uZXQveWFuZ195dWxlaQ==/font/5a6L5L2T/fontsize/400/fill/I0JBQkFCMA==/dissolve/70/gravity/Center)
 
 
 
