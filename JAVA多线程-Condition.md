@@ -34,16 +34,14 @@ void signalAll();
 
 ConditionObject是Condition接口在AQS中的实现类。
 
-### 实现原理分析
-
-#### 核心成员变量
+### 核心成员变量
 
 ```java
 private transient Node firstWaiter;//条件队列的头节点
 private transient Node lastWaiter;//条件队列的尾节点
 ```
 
-#### await()方法
+### await()
 
 ```java
 public final void await() throws InterruptedException {
@@ -68,7 +66,7 @@ public final void await() throws InterruptedException {
 }
 ```
 
-#### addConditionWaiter()方法
+### addConditionWaiter()
 
 ```java
 private Node addConditionWaiter() {
@@ -90,7 +88,7 @@ private Node addConditionWaiter() {
 }
 ```
 
-#### fullyRelease(Node node)方法
+### fullyRelease(Node node)
 
 ```java
 final int fullyRelease(Node node) {
@@ -105,7 +103,7 @@ final int fullyRelease(Node node) {
     }
 }
 ```
-#### isOnSyncQueue(Node node)方法
+### isOnSyncQueue(Node node)
 
 ```java
 final boolean isOnSyncQueue(Node node) {
@@ -125,7 +123,7 @@ final boolean isOnSyncQueue(Node node) {
 }
 ```
 
-#### unlinkCancelledWaiters()方法
+### unlinkCancelledWaiters()
 
 ```java
 //从条件队列中删除节点的状态不为Node.CONDITION的节点
@@ -150,7 +148,7 @@ private void unlinkCancelledWaiters() {
 }
 ```
 
-#### signal()方法
+### signal()
 
 ```java
 //该方法将条件队列中的第一个节点移动到等待队列中
@@ -163,7 +161,7 @@ public final void signal() {
 }
 ```
 
-#### doSignal(Node first)方法
+### doSignal(Node first)
 
 ```java
 private void doSignal(Node first) {
@@ -177,7 +175,7 @@ private void doSignal(Node first) {
 }
 ```
 
-####  transferForSignal(Node node)方法
+###  transferForSignal(Node node)
 
 ```java
 //将节点从条件队列中转移到等待队列中

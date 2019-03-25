@@ -4,8 +4,6 @@
 
 ![âjava éåæ¡æ¶ æ¥å£âçå¾çæç´¢ç"æ](https://upload-images.jianshu.io/upload_images/3985563-e7febf364d8d8235.png?imageMogr2/auto-orient/strip%7CimageView2/2/w/939/format/webp)
 
-## List接口
-
 ###  ArrayList
 
 #### 总体介绍
@@ -21,24 +19,9 @@ private int size;//表示实际存储的元素的数量。
 
 ####  ArrayList的扩容机制
 
-创建ArrayList时如果指定了ArrayList的初始大小，则创建指定大小的数组。
+ArrayList创建时如果在构造函数中指定了其初始大小，则创建时就创建指定大小的数组。
 
 若未指定初始大小，则使用一个长度为零的空数组，待添加数据时再扩容。
-
-```java
-public ArrayList(int initialCapacity) {
-    if (initialCapacity > 0) {
-        this.elementData = new Object[initialCapacity];
-    } else if (initialCapacity == 0) {
-        this.elementData = EMPTY_ELEMENTDATA;
-    } 
-}
-//未指定初始大小
-private static final Object[] DEFAULTCAPACITY_EMPTY_ELEMENTDATA = {};
-public ArrayList() {
-    this.elementData = DEFAULTCAPACITY_EMPTY_ELEMENTDATA;
-}
-```
 
 当容量不足时，ArrayList会调用grow()方法自动扩容：
 
@@ -76,154 +59,9 @@ private int newCapacity(int minCapacity) {
 
 *LinkedList*同时实现了*List*接口和*Deque*接口，也就是说它既可以看作一个顺序容器，又可以看作一个队列（*Queue*），同时又可以看作一个栈（*Stack*）。
 
-*LinkedList*底层通过**双向链表**实现，其数据类型如下所示：
+*LinkedList*底层通过**双向链表**实现。
 
-```Java
-private static class Node<E> {
-    E item;
-    Node<E> next;
-    Node<E> prev;
-    Node(Node<E> prev, E element, Node<E> next) {
-        this.item = element;
-        this.next = next;
-        this.prev = prev;
-    }
-}
-Node<E> first;//指向链表头节点的指针
-Node<E> last;//指向链表尾节点的指针
-```
 
-#### 方法剖析
-
-#####  add(E e)方法
-
-```Java
-public boolean add(E e) {
-    linkLast(e);
-    return true;
-} 
-void linkLast(E e) {
-    final Node<E> l = last;
-    final Node<E> newNode = new Node<>(l, e, null);//创建一个新节点，该节点的prev指向l，next指向null
-    last = newNode;//链表的尾指针指向新创建的节点
-    if (l == null)
-        first = newNode;
-    else
-        l.next = newNode;
-    size++;
-    modCount++;
-}
-```
-
-##### add(int index, E element)方法
-
-```Java
-public void add(int index, E element) {
-    checkPositionIndex(index);
-    if (index == size)
-        linkLast(element);
-    else
-        linkBefore(element, node(index));//node()方法用于找到该索引出的当前节点
-}
-void linkBefore(E e, Node<E> succ) {//在succ节点之前插入元素
-    final Node<E> pred = succ.prev;
-    //新创建一个节点，该节点的prev指向succ的前一个节点，next指向succ
-    final Node<E> newNode = new Node<>(pred, e, succ);
-    succ.prev = newNode;
-    if (pred == null)
-        first = newNode;
-    else
-        pred.next = newNode;
-    size++;
-    modCount++;
-}
-```
-
-##### get(int index)方法
-
-```Java
-public E get(int index) {
-    checkElementIndex(index);
-    return node(index).item;
-}
-Node<E> node(int index) {
-    if (index < (size >> 1)) {//从链表头部开始查找
-        Node<E> x = first;
-        for (int i = 0; i < index; i++)
-            x = x.next;
-        return x;
-    } else { //从链表尾部开始查找
-        Node<E> x = last;
-        for (int i = size - 1; i > index; i--)
-            x = x.prev;
-        return x;
-    }
-}
-```
-
-##### remove(int index)方法
-
-```Java
-public E remove(int index) {
-    checkElementIndex(index);
-    return unlink(node(index));
-}
-E unlink(Node<E> x) {
-    final E element = x.item;
-    final Node<E> next = x.next;
-    final Node<E> prev = x.prev;
-    if (prev == null) {//当该节点不是头节点时
-        first = next;
-    } else {//当该节点不是头节点时
-        prev.next = next;
-        x.prev = null;
-    }
-    if (next == null) {//当该节点是尾节点时
-        last = prev;
-    } else {//当该节点不是尾节点时
-        next.prev = prev;
-        x.next = null;
-    }
-    x.item = null;
-    size--;
-    modCount++;
-    return element;
-}
-```
-##### remove(Object o)方法
-```java
- //当LinkedList中有多个相同的元素o时，该方法只删除其中的一个。
-public boolean remove(Object o) {
-    if (o == null) {
-        for (Node<E> x = first; x != null; x = x.next) {
-            if (x.item == null) {
-                unlink(x);
-                return true;
-            }
-        }
-    } else {
-        for (Node<E> x = first; x != null; x = x.next) {
-            if (o.equals(x.item)) {
-                unlink(x);
-                return true;
-            }
-        }
-    }
-    return false;
-}
-```
-
-##### set(int index, E element)方法
-
-```Java
-public E set(int index, E element) {
-    checkElementIndex(index);
-    Node<E> x = node(index);
-    E oldVal = x.item;
-    x.item = element;
-    return oldVal;
-}
-```
 
 ## Deque接口
 
@@ -246,7 +84,7 @@ ArrayDeque是非线程安全的。
 
 #### 方法剖析
 
-##### addFirst(E e)方法
+addFirst(E e)方法
 
 ```java
 public void addFirst(E e) {
@@ -260,7 +98,7 @@ public void addFirst(E e) {
 }
 ```
 
-##### addLast(E e)方法
+addLast(E e)方法
 
 ```java
 public void addLast(E e) {
@@ -274,7 +112,7 @@ public void addLast(E e) {
 }
 ```
 
-##### pollFirst()方法
+pollFirst()方法
 
 ```java
 public E pollFirst() {
@@ -290,7 +128,7 @@ public E pollFirst() {
 }
 ```
 
-##### pollLast()方法
+pollLast()方法
 
 ```java
 public E pollLast() {
@@ -304,7 +142,7 @@ public E pollLast() {
 }
 ```
 
-##### removeFirst()方法
+removeFirst()方法
 
 ```java
 public E removeFirst() {
@@ -315,7 +153,7 @@ public E removeFirst() {
 }
 ```
 
-##### removeLast()方法
+removeLast()方法
 
 ```java
 public E removeLast() {
@@ -435,7 +273,8 @@ HashSet和HashMap有相同的实现，前者仅仅是对后者做了一层包装
 ### 重要字段
 
 ```java
-static final int DEFAULT_INITIAL_CAPACITY = 1 << 4; //table的默认初始容量，当未指定初始容量时使用。
+//table的默认初始容量为16，当未指定初始容量时使用。
+static final int DEFAULT_INITIAL_CAPACITY = 1 << 4;
 static final float DEFAULT_LOAD_FACTOR = 0.75f;
 Node<K,V>[] table;
 int size;
