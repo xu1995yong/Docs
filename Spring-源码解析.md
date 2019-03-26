@@ -562,24 +562,7 @@ protected Object initializeBean(final String beanName, final Object bean,RootBea
 }
 ```
 
-###### applyBeanPostProcessorsAfterInitialization()
 
-```java
-//AbstractAutowireCapableBeanFactory
-public Object applyBeanPostProcessorsAfterInitialization(Object existingBean, String beanName)
-    throws BeansException {
-
-    Object result = existingBean;
-    for (BeanPostProcessor processor : getBeanPostProcessors()) {
-        Object current = processor.postProcessAfterInitialization(result, beanName);
-        if (current == null) {
-            return result;
-        }
-        result = current;
-    }
-    return result;
-}
-```
 
 
 
@@ -748,9 +731,98 @@ protected void addSingleton(String beanName, Object singletonObject) {
 
 ### 生成代理对象
 
-在bean的初始化过程中，会调用bean对应的BeanPostProcessors。AbstractAutoProxyCreator是BeanPostProcessors的子类，重写了BeanPostProcessors接口的postProcessAfterInitialization方法。在该方法中会对bean进行包装，也就是创建该bean的代理对象。
 
-创建代理的流程为：首先获取所有的Advisor，然后调用AbstractAutoProxyCreator对象的createProxy()方法。在该方法中，首先创建一个proxyFactory对象，然后调用proxyFactory对象的getProxy()方法，在该方法中，获取了JdkDynamicAopProxy对象，该对象实现了JDK的InvocationHandler接口，所以能使用动态代理创建代理对象。
+
+
+
+代理对象的创建流程为：首先获取所有的Advisor，然后判断这些Advisor能否应用于当前Bean，判断依据就是每个Advisor的节点表达式与当前Bean的类型匹配，如果当前Bean没有找到匹配的Advisor，说明当前Bean不需要代理，直接返回当前Bean。
+
+如果找到了匹配的Advisor，则调用AbstractAutoProxyCreator对象的createProxy()方法。在该方法中，首先创建一个proxyFactory对象，然后将匹配的Advisor封装到该proxyFactory对象中，之后则调用proxyFactory对象的getProxy()方法来获取代理对象。
+
+在proxyFactory对象的getProxy()方法中，首先会进行代理方式的选择。判断依据为目标对象是否实现了接口，如果实现了接口，默认会选择JDK动态代理，这种情况下用户也可以强制指定使用CGLIB代理。如果目标对象没有实现接口，则只能使用CGLIB代理。
+
+确定了代理方式后就会调用该代理对象的getProxy()方法进行代理的创建。在JdkDynamicAopProxy对象的getProxy()方法中，首先会获取被代理对象的接口，然后调用Java包中的Proxy类的newProxyInstance()方法创建代理。
+
+
+
+### 执行目标方法
+
+JdkDynamicAopProxy对象实现了JDK的InvocationHandler接口，所以能使用动态代理创建代理对象。
+
+
+
+#### AbstractAutowireCapableBeanFactory类
+
+##### applyBeanPostProcessorsBeforeInstantiation()
+
+```java
+//AbstractAutowireCapableBeanFactory类
+protected Object applyBeanPostProcessorsBeforeInstantiation(Class<?> beanClass, String beanName) {
+    for (BeanPostProcessor bp : getBeanPostProcessors()) {
+        if (bp instanceof InstantiationAwareBeanPostProcessor) {
+            InstantiationAwareBeanPostProcessor ibp = (InstantiationAwareBeanPostProcessor) bp;
+            Object result = ibp.postProcessBeforeInstantiation(beanClass, beanName);
+            if (result != null) {
+                return result;
+            }
+        }
+    }
+    return null;
+}
+```
+
+#### postProcessBeforeInstantiation()
+
+```java
+public Object postProcessBeforeInstantiation(Class<?> beanClass, String beanName) {
+    Object cacheKey = getCacheKey(beanClass, beanName);
+    if (!StringUtils.hasLength(beanName) || !this.targetSourcedBeans.contains(beanName)) {
+        if (this.advisedBeans.containsKey(cacheKey)) {
+            return null;
+        }
+        if (isInfrastructureClass(beanClass) || shouldSkip(beanClass, beanName)) {
+            this.advisedBeans.put(cacheKey, Boolean.FALSE);
+            return null;
+        }
+    }
+
+    // Create proxy here if we have a custom TargetSource.
+    // Suppresses unnecessary default instantiation of the target bean:
+    // The TargetSource will handle target instances in a custom fashion.
+    TargetSource targetSource = getCustomTargetSource(beanClass, beanName);
+    if (targetSource != null) {
+        if (StringUtils.hasLength(beanName)) {
+            this.targetSourcedBeans.add(beanName);
+        }
+        Object[] specificInterceptors = getAdvicesAndAdvisorsForBean(beanClass, beanName, targetSource);
+        Object proxy = createProxy(beanClass, beanName, specificInterceptors, targetSource);
+        this.proxyTypes.put(cacheKey, proxy.getClass());
+        return proxy;
+    }
+    return null;
+}
+```
+
+
+
+###### applyBeanPostProcessorsAfterInitialization()
+
+```java
+//AbstractAutowireCapableBeanFactory
+//该方法在bean创建完之后调用
+public Object applyBeanPostProcessorsAfterInitialization(Object existingBean, String beanName)
+    throws BeansException {
+    Object result = existingBean;
+    for (BeanPostProcessor processor : getBeanPostProcessors()) {
+        Object current = processor.postProcessAfterInitialization(result, beanName);
+        if (current == null) {
+            return result;
+        }
+        result = current;
+    }
+    return result;
+}
+```
 
 #### postProcessAfterInitialization()
 
@@ -760,6 +832,7 @@ public Object postProcessAfterInitialization(Object bean, String beanName) {
     if (bean != null) {
         Object cacheKey = getCacheKey(bean.getClass(), beanName);
         if (!this.earlyProxyReferences.contains(cacheKey)) {
+            //如果需要，则包装bean
             return wrapIfNecessary(bean, beanName, cacheKey);
         }
     }
