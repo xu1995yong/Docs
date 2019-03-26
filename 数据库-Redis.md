@@ -78,6 +78,16 @@ Redis支持五种数据类型：string（字符串），hash表（哈希），li
   zset 可以用来存粉丝列表，value 值是粉丝的用户 ID，score 是关注时间。我们可以对粉丝列表按关注时间进行排序。zset 还可以用来存储学生的成绩，value 值是学生的 ID，score 是他的考试成绩。我们可以对成绩按分数进行排序就可以得到他的名次。
 - Hash表类型：表示的是包含键值对的无序散列表。基于数组加链表的二维结构实现。Redis中Hash类型的值只能是字符串。
 
+### 跳跃列表的实现
+
+跳跃列表是一种随机化数据结构，实质对有序的链表增加上附加的前进链接，增加是以随机化的方式进行的，所以在列表中的查找可以快速的跳过部分列表元素。
+
+比如在查找的过程中，可以先通过每个节点的最上层的指针先进行查找，如果未找到，则对下面一层的指针进行查找，若仍未找到，缩小范围继续查找。这样子就能跳过大部分的节点，缩短查询时间。
+
+查找、插入和删除操作的时间复杂度都为: **O(logn)**
+
+![img](https://img-blog.csdn.net/20150530162529554?watermark/2/text/aHR0cDovL2Jsb2cuY3Nkbi5uZXQveWFuZ195dWxlaQ==/font/5a6L5L2T/fontsize/400/fill/I0JBQkFCMA==/dissolve/70/gravity/Center)
+
 ### 键的过期时间
 
 Redis 可以为每个键设置过期时间，当键过期时，会自动删除该键。对于散列表这种容器，只能为整个键设置过期时间（整个散列表），而不能为键里面的单个元素设置过期时间。
@@ -144,9 +154,7 @@ Redis 通过 [PUBLISH](http://redis.readthedocs.org/en/latest/pub_sub/publish.ht
 
 
 
-## Redis的原理
-
-### Redis事务的实现
+## Redis事务的实现
 
 Redis 通过 [MULTI](http://redis.readthedocs.org/en/latest/transaction/multi.html#multi) 、 [DISCARD](http://redis.readthedocs.org/en/latest/transaction/discard.html#discard) 、 [EXEC](http://redis.readthedocs.org/en/latest/transaction/exec.html#exec) 和 [WATCH](http://redis.readthedocs.org/en/latest/transaction/watch.html#watch) 四个命令来实现事务功能。
 
@@ -154,21 +162,13 @@ Redis 通过 [MULTI](http://redis.readthedocs.org/en/latest/transaction/multi.ht
 
 [WATCH](http://redis.readthedocs.org/en/latest/transaction/watch.html#watch) 命令用于在事务开始之前监视任意数量的键，当调用 [EXEC](http://redis.readthedocs.org/en/latest/transaction/exec.html#exec) 命令执行事务时， 如果任意一个被监视的键已经被其他客户端修改， 那整个事务不再执行， 直接返回失败。
 
-### 跳跃列表的实现
-
-跳跃列表是一种随机化数据结构，实质对有序的链表增加上附加的前进链接，增加是以随机化的方式进行的，所以在列表中的查找可以快速的跳过部分列表元素。
-
-比如在查找的过程中，可以先通过每个节点的最上层的指针先进行查找，如果未找到，则对下面一层的指针进行查找，若仍未找到，缩小范围继续查找。这样子就能跳过大部分的节点，缩短查询时间。
-
-查找、插入和删除操作的时间复杂度都为: **O(logn)**
-
-![img](https://img-blog.csdn.net/20150530162529554?watermark/2/text/aHR0cDovL2Jsb2cuY3Nkbi5uZXQveWFuZ195dWxlaQ==/font/5a6L5L2T/fontsize/400/fill/I0JBQkFCMA==/dissolve/70/gravity/Center)
 
 
 
-### Redis数据持久化
 
-#### RDB持久化
+## Redis数据持久化
+
+### RDB持久化
 
 RDB持久化是指将某一个时间点的数据信息保存到RDB文件中，RDB文件是一个经过压缩的二进制文件。
 
@@ -179,11 +179,25 @@ RDB持久化操作可以手动执行，也可以配置服务器定期执行。�
 1. SAVE命令：阻塞redis服务器进程，直到RDB文件创建完毕。
 2. BGSAVE命令：派生一个子进程，由子进程负责创建RDB文件，父进程继续处理请求。
 
-#### AOF持久化
+### AOF持久化
 
 AOF持久化通过将Redis服务器执行的写命令保存到AOF文件中来记录数据库状态。
 
 AOF文件中的所有命令都以Redis命令请求协议的格式保存。在保存时，命令请求会先将命令保存到AOF缓冲区中，之后再定期写入到AOF文件。
+
+
+
+## Redis主从复制的实现
+
+从服务器使用 ` SLAVEOF HOST PORT` 命令实现复制一个主服务器的数据。具体步骤为：
+
+1. 从服务器向主服务器发送*`SLAVEOF`*命令。
+2. 从服务器创建连向主服务器的套接字。
+3. 从服务器发送PING命令，验证套接字状态和主服务器的状态。
+4. 身份验证
+5. 从服务器向主服务器发送自己的监听端口号。
+6. 从服务器向主服务器发送`PSYNC`命令，执行更新操作。
+7. 同步完成之后，主从服务器进入命令传播阶段，这时主服务器一直将自己执行的写命令发送给从服务器，从服务器接收并执行主服务器发送的写命令。
 
 
 

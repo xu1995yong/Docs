@@ -441,11 +441,15 @@ public <T> Exporter<T> export(Invoker<T> invoker) throws RpcException {
 
 在ReferenceBean类的getObject()方法中，调用父类ReferenceConfig类的get()方法来获取指定的Bean。在get()方法中会调用init()方法。在init()方法中，首先会进行相应的配置解析比如当前应用名、注册中心地址、当前服务的接口名及接口内的方法名、服务消费者 ip 地址等，并将配置存储到 Hashmap 中，之后会调用createProxy()方法并传入存储了相应配置的map来创建代理对象。
 
-在createProxy()方法中，首先会根据 url 的协议、scope值以及 injvm 等参数检测是否是本地引用，如果不是则执行远程引用过程。
+在createProxy()方法中，首先会根据 url 的协议、scope值以及 injvm 等参数检测是否是本地引用，如果不是则执行远程引用过程。远程引用时会先判断是否是点对点接连，如果不是点对点连接，则加载注册中心的url地址，之后会调用RegistryProtocol的 refer()方法。
 
-首先会加载注册中心的url地址，如果未配置注册中心，就会抛出异常。之后会调用RegistryProtocol的 refer()方法构建 Invoker 实例。Invoker 是 Dubbo 的核心模型，代表一个可执行体。在服务消费方，Invoker 用于执行远程调用。
+在RegistryProtocol的refer()方法中，首先会根据url获取注册中心实例，之后在注册中心的 consumers 目录下注册自己，然后订阅注册中心中的 providers 节点下的信息。
 
-在RegistryProtocol的refer()方法中，首先会获取注册中心实例，之后调用 doRefer()方法 继续执行服务引用逻辑
+之后会调用DubboProtocol的refer()方法，在该方法 中，会建立与当前服务的提供者的连接。
+
+最后调用 ProxyFactory 的getProxy()方法并传入刚创建的Invoker实例来生成最终的代理类，
+
+Init()方法调用完成后，初始化过程结束，get()方法就将创建出来的代理对象返回。
 
 
 
@@ -664,10 +668,6 @@ private <T> Invoker<T> doRefer(Cluster cluster, Registry registry, Class<T> type
 }
 ```
 
-
-
-
-
 ### DubboProtocol类
 
 #### refer()
@@ -683,7 +683,7 @@ public <T> Invoker<T> refer(Class<T> serviceType, URL url) throws RpcException {
 }
 ```
 
-
+#### getClients()
 
 ```java
 private ExchangeClient[] getClients(URL url) {
@@ -710,6 +710,277 @@ private ExchangeClient[] getClients(URL url) {
 
 
 
+## Dubbo服务调用过程
+
+从Spring容器中获取的ConsumerBean实际上是一个代理对象。该代理对象是根据Dubbo配置文件的设置，对Invoker层层封装的结果。Invoker 是 Dubbo 的核心模型，代表一个可执行体。在服务消费方，Invoker 用于执行远程调用。
+
+当调用该ConsumerBean的某个方法时，会调用 InvocationHandler 接口的实现类 InvokerInvocationHandler 的 invoke()方法。InvokerInvocationHandler 中封装了Invoker类型的成员变量，比如MockClusterInvoker，MockClusterInvoker 内部封装了服务降级逻辑。所以在InvokerInvocationHandler 对象的invoke()方法中又调用了MockClusterInvoker 对象的invoke()方法。
+
+MockClusterInvoker对象中又封装了Invoker类型的成员变量，比如 FailoverClusterInvoker，所以在MockClusterInvoker 对象的invoke()方法中会调用FailoverClusterInvoker对象的invoke()方法。该方法在其父类AbstractClusterInvoker类中定义。该invoke()方法会获取所有可用的Invoker，并初始化负载均衡策略，之后会调用其doInvoke()方法，该方法在FailoverClusterInvoker类中重写。
+
+在FailoverClusterInvoker类的doInvoke()方法中，主要封装了失败重试的逻辑。在该方法中，首先会获取配置文件中的失败重试次数，然后在一个for循环当中失败重试。在for循环中首先会通过负载均衡机制选择一个Invoker，然后调用该Invoker 的 invoke() 方法。
+
+如果采用Dubbo协议，最终该调用会转到DubboInvoker对象的invoke()方法，该方法在其父类AbstractInvoker类中定义。在该invoke()方法中会设置一些参数，之后调用AbstractInvoker类的doInvoke()方法。该方法在DubboInvoker中重写。
+
+在DubboInvoker的doInvoke()方法中，首先会选择一个服务引用过程中已经创建好的客户端，然后判断该次RPC调用的类型，比如Oneway、Async、Sync。
+
+- 如果是Oneway类型的调用，则调用已选择的客户端的request()方法发送请求，并返回一个空结果。
+- 如果是异步调用则调用已选择的客户端的request()方法发送请求，并暂时返回一个空结果。
+- 如果是同步调用，就调用已选择的客户端的request()方法将请求发送出去。之后将服务提供者返回的数据封装成ResponseFuture类型的对象，并调用该对象的get()方法返回调用的值。
+
+
+
+### InvokerInvocationHandler类
+
+```java
+private final Invoker<?> invoker;
+
+public InvokerInvocationHandler(Invoker<?> handler) {
+    this.invoker = handler;
+}
+
+@Override
+public Object invoke(Object proxy, Method method, Object[] args) throws Throwable {
+    String methodName = method.getName();
+    Class<?>[] parameterTypes = method.getParameterTypes();
+    if (method.getDeclaringClass() == Object.class) {
+        return method.invoke(invoker, args);
+    }
+    if ("toString".equals(methodName) && parameterTypes.length == 0) {
+        return invoker.toString();
+    }
+    if ("hashCode".equals(methodName) && parameterTypes.length == 0) {
+        return invoker.hashCode();
+    }
+    if ("equals".equals(methodName) && parameterTypes.length == 1) {
+        return invoker.equals(args[0]);
+    }
+
+    return invoker.invoke(createInvocation(method, args)).recreate();
+}
+
+private RpcInvocation createInvocation(Method method, Object[] args) {
+    RpcInvocation invocation = new RpcInvocation(method, args);
+    if (RpcUtils.hasFutureReturnType(method)) {
+        invocation.setAttachment(Constants.FUTURE_RETURNTYPE_KEY, "true");
+        invocation.setAttachment(Constants.ASYNC_KEY, "true");
+    }
+    return invocation;
+}
+
+```
+
+
+
+```java
+public Result invoke(Invocation invocation) throws RpcException {
+    Result result = null;
+
+    String value = directory.getUrl().getMethodParameter(invocation.getMethodName(), Constants.MOCK_KEY, Boolean.FALSE.toString()).trim();
+    if (value.length() == 0 || value.equalsIgnoreCase("false")) {
+        //no mock
+        result = this.invoker.invoke(invocation);
+    } else if (value.startsWith("force")) {
+
+        //force:direct mock
+        result = doMockInvoke(invocation, null);
+    } else {
+        //fail-mock
+        try {
+            result = this.invoker.invoke(invocation);
+        } catch (RpcException e) {
+            if (e.isBiz()) {
+                throw e;
+            }
+
+
+            result = doMockInvoke(invocation, e);
+        }
+    }
+    return result;
+}
+```
+
+### AbstractClusterInvoker类
+
+#### invoke()
+
+```java
+//AbstractClusterInvoker类
+public Result invoke(final Invocation invocation) throws RpcException {
+    checkWhetherDestroyed();
+
+    // binding attachments into invocation.
+    Map<String, String> contextAttachments = RpcContext.getContext().getAttachments();
+    if (contextAttachments != null && contextAttachments.size() != 0) {
+        ((RpcInvocation) invocation).addAttachments(contextAttachments);
+    }
+
+    List<Invoker<T>> invokers = list(invocation);
+    LoadBalance loadbalance = initLoadBalance(invokers, invocation);
+    RpcUtils.attachInvocationIdIfAsync(getUrl(), invocation);
+    return doInvoke(invocation, invokers, loadbalance);
+}
+```
+
+
+
+
+
+### FailoverClusterInvoker类
+
+#### doInvoke()
+
+```java
+//FailoverClusterInvoker类
+public Result doInvoke(Invocation invocation, final List<Invoker<T>> invokers, LoadBalance loadbalance) throws RpcException {
+    List<Invoker<T>> copyInvokers = invokers;
+    checkInvokers(copyInvokers, invocation);
+    String methodName = RpcUtils.getMethodName(invocation);
+    //获取重试次数
+    int len = getUrl().getMethodParameter(methodName, Constants.RETRIES_KEY, Constants.DEFAULT_RETRIES) + 1;
+    if (len <= 0) {
+        len = 1;
+    }
+    RpcException le = null; // last exception.
+    List<Invoker<T>> invoked = new ArrayList<Invoker<T>>(copyInvokers.size()); // invoked invokers.
+    Set<String> providers = new HashSet<String>(len);
+    for (int i = 0; i < len; i++) { //在一个for循环当中，失败重试
+        if (i > 0) {
+            checkWhetherDestroyed();
+            // 在进行重试前重新列举 Invoker，这样做的好处是，如果某个服务挂了，
+            // 通过调用 list 可得到最新可用的 Invoker 列表
+            copyInvokers = list(invocation);
+            checkInvokers(copyInvokers, invocation);
+        }
+        //通过负载均衡机制，选择一个Invoker
+        Invoker<T> invoker = select(loadbalance, invocation, copyInvokers, invoked);
+        invoked.add(invoker);
+        RpcContext.getContext().setInvokers((List) invoked);
+        try {
+            Result result = invoker.invoke(invocation);
+            return result;
+        } catch (RpcException e) {
+            if (e.isBiz()) { // biz exception.
+                throw e;
+            }
+            le = e;
+        } catch (Throwable e) {
+            le = new RpcException(e.getMessage(), e);
+        } finally {
+            providers.add(invoker.getUrl().getAddress());
+        }
+    }
+}
+
+```
+
+
+
+
+
+```java
+//AbstractInvoker类
+public Result invoke(Invocation inv) throws RpcException {
+    // if invoker is destroyed due to address refresh from registry, let's allow the current invoke to proceed
+    RpcInvocation invocation = (RpcInvocation) inv;
+    invocation.setInvoker(this);
+    if (attachment != null && attachment.size() > 0) {
+        invocation.addAttachmentsIfAbsent(attachment);
+    }
+    Map<String, String> contextAttachments = RpcContext.getContext().getAttachments();
+    if (contextAttachments != null && contextAttachments.size() != 0) {
+        /**
+             * invocation.addAttachmentsIfAbsent(context){@link RpcInvocation#addAttachmentsIfAbsent(Map)}should not be used here,
+             * because the {@link RpcContext#setAttachment(String, String)} is passed in the Filter when the call is triggered
+             * by the built-in retry mechanism of the Dubbo. The attachment to update RpcContext will no longer work, which is
+             * a mistake in most cases (for example, through Filter to RpcContext output traceId and spanId and other information).
+             */
+        invocation.addAttachments(contextAttachments);
+    }
+    if (getUrl().getMethodParameter(invocation.getMethodName(), Constants.ASYNC_KEY, false)) {
+        invocation.setAttachment(Constants.ASYNC_KEY, Boolean.TRUE.toString());
+    }
+    RpcUtils.attachInvocationIdIfAsync(getUrl(), invocation);
+
+
+    try {
+        return doInvoke(invocation);
+    } catch (InvocationTargetException e) { // biz exception
+        Throwable te = e.getTargetException();
+        if (te == null) {
+            return new RpcResult(e);
+        } else {
+            if (te instanceof RpcException) {
+                ((RpcException) te).setCode(RpcException.BIZ_EXCEPTION);
+            }
+            return new RpcResult(te);
+        }
+    } catch (RpcException e) {
+        if (e.isBiz()) {
+            return new RpcResult(e);
+        } else {
+            throw e;
+        }
+    } catch (Throwable e) {
+        return new RpcResult(e);
+    }
+}
+```
+
+
+
+```java
+//DubboInvoker类
+protected Result doInvoke(final Invocation invocation) throws Throwable {
+    RpcInvocation inv = (RpcInvocation) invocation;
+    final String methodName = RpcUtils.getMethodName(invocation);
+    inv.setAttachment(Constants.PATH_KEY, getUrl().getPath());
+    inv.setAttachment(Constants.VERSION_KEY, version);
+
+    ExchangeClient currentClient;
+    //选择一个客户端
+    if (clients.length == 1) {
+        currentClient = clients[0];
+    } else {
+        currentClient = clients[index.getAndIncrement() % clients.length];
+    }
+    try {
+        boolean isAsync = RpcUtils.isAsync(getUrl(), invocation);
+        boolean isAsyncFuture = RpcUtils.isReturnTypeFuture(inv);
+        boolean isOneway = RpcUtils.isOneway(getUrl(), invocation);
+        int timeout = getUrl().getMethodParameter(methodName, Constants.TIMEOUT_KEY, Constants.DEFAULT_TIMEOUT);
+        if (isOneway) { //单向通信，异步无返回值
+            boolean isSent = getUrl().getMethodParameter(methodName, Constants.SENT_KEY, false);
+            currentClient.send(inv, isSent);
+            RpcContext.getContext().setFuture(null);
+            return new RpcResult();
+        } else if (isAsync) {//异步通信有返回值
+            ResponseFuture future = currentClient.request(inv, timeout);
+            // For compatibility
+            FutureAdapter<Object> futureAdapter = new FutureAdapter<>(future);
+            RpcContext.getContext().setFuture(futureAdapter);
+
+            Result result;
+            if (isAsyncFuture) {
+                // register resultCallback, sometimes we need the async result being processed by the filter chain.
+                result = new AsyncRpcResult(futureAdapter, futureAdapter.getResultFuture(), false);
+            } else {
+                result = new SimpleAsyncRpcResult(futureAdapter, futureAdapter.getResultFuture(), false);
+            }
+            return result;
+        } else {
+            //同步的方式
+            RpcContext.getContext().setFuture(null);
+            return (Result) currentClient.request(inv, timeout).get();//调用底层的Netty客户端，发送请求
+        }
+    }  
+}
+
+```
+
+
+
 
 
 
@@ -724,23 +995,15 @@ private ExchangeClient[] getClients(URL url) {
 
 
 
-5、rpc的调用过程？dubbo的服务调用过程？基本组件？dubbo各协议的区别？（dubbo协议基于tcp，又扯到了tcp与udp的区别）
+5、rpc的调用过程？dubbo的服务调用过程？基本组件？  
 
  
 
  
 
-Dubbo完整的一次调用链路介绍；
-
  
 
-Dubbo Provider服务提供者要控制执行并发请求上限，具体怎么做？
-
-Dubbo启动的时候支持几种配置方式？
-
-**dubbo：**
-
-底层原理，通信机制，缓存列表，dubbo的重试机制的各种区别，使用场景，如何选择，dubbo的负载均衡策略的各种比对，
+ 
 
  
 
