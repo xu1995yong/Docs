@@ -6,9 +6,7 @@
 
 2. 依赖注入（DI)
 
-
-
-
+   
 
 ### BeanFactory 和 ApplicationContext的区别
 
@@ -19,9 +17,24 @@ ApplicationContext继承于BeanFactory，并且提供了更多高级功能，比
 ApplicationContext的三个实现类：
 
 - ClassPathXmlApplication：把上下文文件当成类路径资源
+
 - FileSystemXmlApplication：从文件系统中的XML文件载入上下文定义信息
+
 - XmlWebApplicationContext：从Web系统中的XML文件载入上下文定义信息
 
+  
+
+### Bean的作用域
+
+1. singleton作用域：当把一个bean定义设置为singleton作用域时，Spring IOC容器只会创建该bean定义的唯一实例。这个单一实例会被存储到单例缓存（singleton cache）中，并且所有针对该bean的后续请求和引用都将返回被缓存的对象实例。
+
+2. prototype作用域：当把一个bean定义设置为prototype作用域时，对这个Bean的每一次获取操作（将其注入到另一个bean中，或者以程序的方式调用容器的getBean()方法）都会产生一个新的bean实例。对于prototype作用域的bean，Spring不能对其生命周期负责，容器在装配完一个prototype实例后，将它交给客户端，由客户端负责prototype实例的生命周期。
+
+3. request作用域：表示该针对每一次HTTP请求都会产生一个新的bean，同时该bean仅在当前HTTP request内有效。
+
+4. session作用域：表示该针对每一次HTTP请求都会产生一个新的bean，同时该bean仅在当前HTTP session内有效。
+
+5. global session作用域类似于标准的HTTP Session作用域，不过它仅仅在基于portlet的web应用中才有意义。Portlet规范定义了全局Session的概念，它被所有构成某个portlet web应用的各种不同的portlet所共享。在global session作用域中定义的bean被限定于全局portlet Session的生命周期范围内。如果你在web中使用global session作用域来标识bean，那么web会自动当成session类型来使用。
 
 
 
@@ -29,6 +42,14 @@ ApplicationContext的三个实现类：
 ##  ApplicationContext的初始化流程
 
 ![img](http://dl.iteye.com/upload/attachment/386364/473a5937-be61-3e4b-b1b2-4a5dd351d10a.jpg)
+
+
+
+ApplicationContext的初始化是从AbstractApplicationContext类的refresh()方法中开始的。在该方法中首先会进行刷新前的环境准备，比如属性验证等。然后会刷新BeanFactory，也就是关闭之前的BeanFactory，创建新的BeanFactory，并导入定义的BeanDefinition。然后会初始化新创建的BeanFactory。之后就会调用注册的BeanFactoryPostProcessor的方法。
+
+之后就会向创建的BeanFactory中注册BeanPostProcessor，然后进行MessageSource、ApplicationEventMulticaster的初始化，然后注册ApplicationListener，之后就会初始化所有剩下的非懒加载的单实例bean。之后会发布ContextRefreshedEvent事件，完成ApplicationContext的初始化。
+
+
 
 ###  refresh()
 
@@ -54,13 +75,9 @@ public void refresh() throws BeansException, IllegalStateException {
         initApplicationEventMulticaster();
         // Initialize other special beans in specific context subclasses.
         onRefresh();
-        // Check for listener beans and register them.
         registerListeners();
-
         //初始化所有剩余的非懒加载的单实例bean。极其重要的方法！
         finishBeanFactoryInitialization(beanFactory);
-
-        // Last step: publish corresponding event.
         finishRefresh();
     }
 }
@@ -173,56 +190,25 @@ protected void prepareBeanFactory(ConfigurableListableBeanFactory beanFactory) {
 
 ```java
 protected void finishBeanFactoryInitialization(ConfigurableListableBeanFactory beanFactory) {
-    // Initialize conversion service for this context.
     if (beanFactory.containsBean(CONVERSION_SERVICE_BEAN_NAME) &&
         beanFactory.isTypeMatch(CONVERSION_SERVICE_BEAN_NAME, ConversionService.class)) {
         beanFactory.setConversionService(
             beanFactory.getBean(CONVERSION_SERVICE_BEAN_NAME, ConversionService.class));
     }
-
-    // Register a default embedded value resolver if no bean post-processor
-    // (such as a PropertyPlaceholderConfigurer bean) registered any before:
-    // at this point, primarily for resolution in annotation attribute values.
     if (!beanFactory.hasEmbeddedValueResolver()) {
         beanFactory.addEmbeddedValueResolver(strVal -> getEnvironment().resolvePlaceholders(strVal));
     }
-
-    // Initialize LoadTimeWeaverAware beans early to allow for registering their transformers early.
     String[] weaverAwareNames = beanFactory.getBeanNamesForType(LoadTimeWeaverAware.class, false, false);
     for (String weaverAwareName : weaverAwareNames) {
         getBean(weaverAwareName);
     }
-
-    // Stop using the temporary ClassLoader for type matching.
     beanFactory.setTempClassLoader(null);
-
-    // Allow for caching all bean definition metadata, not expecting further changes.
     beanFactory.freezeConfiguration();
-
     // 调用beanFactory的方法，初始化所有剩余的非懒加载的单实例bean
     beanFactory.preInstantiateSingletons();
 }
 ```
-
-#### finishRefresh()
-
-```java
-protected void finishRefresh() {
-    // 清除资源缓存
-    clearResourceCaches();
-    // 初始化生命周期处理器
-    initLifecycleProcessor();
-    // 
-    getLifecycleProcessor().onRefresh();
-    // 发布ContextRefreshedEvent事件
-    publishEvent(new ContextRefreshedEvent(this));
-    LiveBeansView.registerApplicationContext(this);
-}
-```
-
-
-
-### preInstantiateSingletons()
+##### preInstantiateSingletons()
 
 ```java
 //DefaultListableBeanFactory类
@@ -244,8 +230,35 @@ public void preInstantiateSingletons(){
 }
 ```
 
+#### finishRefresh()
 
-## Bean的获取过程
+```java
+protected void finishRefresh() {
+    // 清除资源缓存
+    clearResourceCaches();
+    // 初始化生命周期处理器
+    initLifecycleProcessor();
+    // 
+    getLifecycleProcessor().onRefresh();
+    // 发布ContextRefreshedEvent事件
+    publishEvent(new ContextRefreshedEvent(this));
+    LiveBeansView.registerApplicationContext(this);
+}
+```
+
+
+
+## Bean的获取流程
+
+Bean的创建流程是从AbstractBeanFactory的getBean()方法开始的。该方法中首先将传入的name转化为对应的beanName，因为传入的name可能为bean的别名，或者FactoryBean。然后该方法会尝试从缓存中获取Bean，因为所有创建过的单实例Bean都会被缓存起来。如果不能从缓存中获取Bean，之后会检查是否存在循环依赖，原型模式的bean的循环依赖，则抛出异常。
+
+之后会进入Bean 的创建流程。首先会记录当前正要加载的bean，之后调用AbstractAutowireCapableBeanFactory类的createBean()方法。在该方法中，会进行方法覆盖，之后调用AbstractAutowireCapableBeanFactory类的doCreateBean()方法。
+
+Spring中将Bean的创建过程分为三步，都在AbstractAutowireCapableBeanFactory类的doCreateBean()方法中。
+
+1. createBeanInstance(beanName, mbd, args)：利用工厂方法或者利用反射对象的构造器创建Bean的实例。
+2. populateBean(beanName, mbd, instanceWrapper)：属性填充
+3. initializeBean(beanName, exposedObject, mbd)：调用配置文件中指定的init-method初始化对象。
 
 ### getBean()
 
@@ -414,8 +427,7 @@ protected Object createBean(String beanName, RootBeanDefinition mbd,Object[] arg
     }
     //方法覆盖
     mbdToUse.prepareMethodOverrides();
-    //给 BeanPostProcessors 一个机会来返回代理对象代理真正的实例。是AOP的基础
-    Object bean = resolveBeforeInstantiation(beanName, mbdToUse);
+     Object bean = resolveBeforeInstantiation(beanName, mbdToUse);
     if (bean != null) {
         return bean;
     }
@@ -425,12 +437,6 @@ protected Object createBean(String beanName, RootBeanDefinition mbd,Object[] arg
 }
 ```
 ##### doCreateBean()
-
-Spring中将Bean的创建过程分为三步，都在AbstractAutowireCapableBeanFactory类的doCreateBean()方法中。
-
-1. createBeanInstance(beanName, mbd, args)：创建bean的实例。
-2. populateBean(beanName, mbd, instanceWrapper)：属性填充
-3. initializeBean(beanName, exposedObject, mbd)：调用配置文件中指定的init-method初始化对象。
 
 ```java
 //AbstractAutowireCapableBeanFactory类
@@ -521,8 +527,6 @@ protected BeanWrapper createBeanInstance(String beanName, RootBeanDefinition mbd
 
 ```
 
-
-
 ###### populateBean()
 ```java
 //AbstractAutowireCapableBeanFactory类
@@ -564,7 +568,6 @@ protected void populateBean(String beanName, RootBeanDefinition mbd, @Nullable B
         applyPropertyValues(beanName, mbd, bw, pvs);
     }
 }
-
 ```
 ###### initializeBean()
 ```java
@@ -592,27 +595,28 @@ protected Object initializeBean(final String beanName, final Object bean,RootBea
 
 
 
-
-
-
-
-## bean的生命周期
+## Bean的生命周期
 
 ![img](https://images2015.cnblogs.com/blog/801753/201608/801753-20160809105632527-898343609.jpg)
 
-1. Spring容器从XML文件中读取bean的定义，之后调用bean的构造器实例化bean。
-2. Spring根据bean的定义注入所有的属性。
-3. 如果bean实现了BeanNameAware接口，Spring会调用其setBeanName(String name)方法，传递bean的ID。
-4. 如果Bean实现了BeanFactoryAware接口，Spring会调用其setBeanFactory(BeanFactory beanFactory)方法，传递bean所属的beanfactory。
-5. 如果beanfactory中注册了BeanPostProcessors，Spring会调用其postProcessBeforeInitialization()方法。
-6. 如果bean实现了IntializingBean接口，Spring会调用其afterPropertySet()方法
-7. 调用配置文件中<bean>的init-method属性指定的初始化方法
-8. 如果beanfactory中注册了BeanPostProcessors，Spring会调用其postProcessAfterInitialization()方法。
-9. Bean初始化成功
-10. 如果bean实现了DisposableBean接口，Spring会调用其destroy()方法。
-11. 调用配置文件中<bean>的destroy-method属性指定的销毁方法。
+createBeanInstance()方法中：
 
-///注入属性，初始化
+- Spring容器从XML文件中读取bean的定义，之后调用bean的构造器创建bean的实例。
+
+populateBean()方法中：
+
+- Spring根据bean的定义通过反射注入所有的属性。
+
+initializeBean()方法中：
+1. 如果bean实现了BeanNameAware接口，Spring会调用其setBeanName(String name)方法，传递bean的ID。
+2. 如果Bean实现了BeanFactoryAware接口，Spring会调用其setBeanFactory(BeanFactory beanFactory)方法，传递bean所属的beanfactory。
+3. 如果beanfactory中注册了BeanPostProcessors，Spring会调用其postProcessBeforeInitialization()方法。
+4. 如果bean实现了IntializingBean接口，Spring会调用其afterPropertySet()方法
+5. 调用配置文件中<bean>的init-method属性指定的初始化方法
+6. 如果beanfactory中注册了BeanPostProcessors，Spring会调用其postProcessAfterInitialization()方法。
+7. Bean初始化成功，开始使用Bean。
+8. 如果bean实现了DisposableBean接口，Spring会调用其destroy()方法。
+9. 调用配置文件中<bean>的destroy-method属性指定的销毁方法。
 
 
 
