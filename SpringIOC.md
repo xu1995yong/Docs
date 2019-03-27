@@ -1,3 +1,31 @@
+## SpringIOC基础概念
+
+1. 控制反转（IOC）
+
+控制反转是一种设计思想。在传统的Java程序中，直接通过new关键字创建对象，这样导致程序的强耦合性。为了降低耦合，将对象的创建过程控制权交给了容器，由容器进行注入组合对象。而程序只是被动的接受对象
+
+2. 依赖注入（DI)
+
+
+
+
+
+### BeanFactory 和 ApplicationContext的区别
+
+BeanFactory是Spring中最低层的接口，提供了最简单的容器的功能。BeanFactory使用延迟加载所有的Bean，Bean在获取时才被实例化。
+
+ApplicationContext继承于BeanFactory，并且提供了更多高级功能，比如MessageSource（国际化资源接口）、ResourceLoader（资源加载接口）、ApplicationEventPublisher（应用事件发布接口）等。ApplicationContext在启动时就实例化所有的非延迟加载的Bean。
+
+ApplicationContext的三个实现类：
+
+- ClassPathXmlApplication：把上下文文件当成类路径资源
+- FileSystemXmlApplication：从文件系统中的XML文件载入上下文定义信息
+- XmlWebApplicationContext：从Web系统中的XML文件载入上下文定义信息
+
+
+
+
+
 ##  ApplicationContext的初始化流程
 
 ![img](http://dl.iteye.com/upload/attachment/386364/473a5937-be61-3e4b-b1b2-4a5dd351d10a.jpg)
@@ -712,340 +740,6 @@ protected void addSingleton(String beanName, Object singletonObject) {
     }
 }
 ```
-
-## Spring AOP源码分析
-
-
-
-### AutoProxyCreator的注册
-
-
-
-
-
-
-
-
-
-
-
-### 生成代理对象
-
-
-
-
-
-代理对象的创建流程为：首先获取所有的Advisor，然后判断这些Advisor能否应用于当前Bean，判断依据就是每个Advisor的节点表达式与当前Bean的类型匹配，如果当前Bean没有找到匹配的Advisor，说明当前Bean不需要代理，直接返回当前Bean。
-
-如果找到了匹配的Advisor，则调用AbstractAutoProxyCreator对象的createProxy()方法。在该方法中，首先创建一个proxyFactory对象，然后将匹配的Advisor封装到该proxyFactory对象中，之后则调用proxyFactory对象的getProxy()方法来获取代理对象。
-
-在proxyFactory对象的getProxy()方法中，首先会进行代理方式的选择。判断依据为目标对象是否实现了接口，如果实现了接口，默认会选择JDK动态代理，这种情况下用户也可以强制指定使用CGLIB代理。如果目标对象没有实现接口，则只能使用CGLIB代理。
-
-确定了代理方式后就会调用该代理对象的getProxy()方法进行代理的创建。在JdkDynamicAopProxy对象的getProxy()方法中，首先会获取被代理对象的接口，然后调用Java包中的Proxy类的newProxyInstance()方法创建代理。
-
-
-
-### 执行目标方法
-
-JdkDynamicAopProxy对象实现了JDK的InvocationHandler接口，所以能使用动态代理创建代理对象。
-
-
-
-#### AbstractAutowireCapableBeanFactory类
-
-##### applyBeanPostProcessorsBeforeInstantiation()
-
-```java
-//AbstractAutowireCapableBeanFactory类
-protected Object applyBeanPostProcessorsBeforeInstantiation(Class<?> beanClass, String beanName) {
-    for (BeanPostProcessor bp : getBeanPostProcessors()) {
-        if (bp instanceof InstantiationAwareBeanPostProcessor) {
-            InstantiationAwareBeanPostProcessor ibp = (InstantiationAwareBeanPostProcessor) bp;
-            Object result = ibp.postProcessBeforeInstantiation(beanClass, beanName);
-            if (result != null) {
-                return result;
-            }
-        }
-    }
-    return null;
-}
-```
-
-#### postProcessBeforeInstantiation()
-
-```java
-public Object postProcessBeforeInstantiation(Class<?> beanClass, String beanName) {
-    Object cacheKey = getCacheKey(beanClass, beanName);
-    if (!StringUtils.hasLength(beanName) || !this.targetSourcedBeans.contains(beanName)) {
-        if (this.advisedBeans.containsKey(cacheKey)) {
-            return null;
-        }
-        if (isInfrastructureClass(beanClass) || shouldSkip(beanClass, beanName)) {
-            this.advisedBeans.put(cacheKey, Boolean.FALSE);
-            return null;
-        }
-    }
-
-    // Create proxy here if we have a custom TargetSource.
-    // Suppresses unnecessary default instantiation of the target bean:
-    // The TargetSource will handle target instances in a custom fashion.
-    TargetSource targetSource = getCustomTargetSource(beanClass, beanName);
-    if (targetSource != null) {
-        if (StringUtils.hasLength(beanName)) {
-            this.targetSourcedBeans.add(beanName);
-        }
-        Object[] specificInterceptors = getAdvicesAndAdvisorsForBean(beanClass, beanName, targetSource);
-        Object proxy = createProxy(beanClass, beanName, specificInterceptors, targetSource);
-        this.proxyTypes.put(cacheKey, proxy.getClass());
-        return proxy;
-    }
-    return null;
-}
-```
-
-
-
-###### applyBeanPostProcessorsAfterInitialization()
-
-```java
-//AbstractAutowireCapableBeanFactory
-//该方法在bean创建完之后调用
-public Object applyBeanPostProcessorsAfterInitialization(Object existingBean, String beanName)
-    throws BeansException {
-    Object result = existingBean;
-    for (BeanPostProcessor processor : getBeanPostProcessors()) {
-        Object current = processor.postProcessAfterInitialization(result, beanName);
-        if (current == null) {
-            return result;
-        }
-        result = current;
-    }
-    return result;
-}
-```
-
-#### postProcessAfterInitialization()
-
-```java
-//AbstractAutoProxyCreator
-public Object postProcessAfterInitialization(Object bean, String beanName) {
-    if (bean != null) {
-        Object cacheKey = getCacheKey(bean.getClass(), beanName);
-        if (!this.earlyProxyReferences.contains(cacheKey)) {
-            //如果需要，则包装bean
-            return wrapIfNecessary(bean, beanName, cacheKey);
-        }
-    }
-    return bean;
-}
-```
-
-#### wrapIfNecessary()
-
-```java
-//AbstractAutoProxyCreator
-protected Object wrapIfNecessary(Object bean, String beanName, Object cacheKey) {
-    if (StringUtils.hasLength(beanName) && this.targetSourcedBeans.contains(beanName)) {
-        return bean;
-    }
-    if (Boolean.FALSE.equals(this.advisedBeans.get(cacheKey))) {
-        return bean;
-    }
-    if (isInfrastructureClass(bean.getClass()) || shouldSkip(bean.getClass(), beanName)) {
-        this.advisedBeans.put(cacheKey, Boolean.FALSE);
-        return bean;
-    }
-    Object[] specificInterceptors = getAdvicesAndAdvisorsForBean(bean.getClass(), beanName, null);
-    if (specificInterceptors != DO_NOT_PROXY) {
-        this.advisedBeans.put(cacheKey, Boolean.TRUE);
-        //创建bean的代理对象
-        Object proxy = createProxy(
-            bean.getClass(), beanName, specificInterceptors, new SingletonTargetSource(bean));
-        this.proxyTypes.put(cacheKey, proxy.getClass());
-        return proxy;
-    }
-
-    this.advisedBeans.put(cacheKey, Boolean.FALSE);
-    return bean;
-}
-```
-
-#### createProxy()
-
-```java
-//AbstractAutoProxyCreator
-protected Object createProxy(Class<?> beanClass,String beanName,Object[] specificInterceptors, TargetSource targetSource) {
-
-    if (this.beanFactory instanceof ConfigurableListableBeanFactory) {
-        AutoProxyUtils.exposeTargetClass((ConfigurableListableBeanFactory) this.beanFactory, beanName, beanClass);
-    }
-
-    ProxyFactory proxyFactory = new ProxyFactory();
-    proxyFactory.copyFrom(this);
-
-    if (!proxyFactory.isProxyTargetClass()) {
-        if (shouldProxyTargetClass(beanClass, beanName)) {
-            proxyFactory.setProxyTargetClass(true);
-        }
-        else {
-            evaluateProxyInterfaces(beanClass, proxyFactory);
-        }
-    }
-
-    Advisor[] advisors = buildAdvisors(beanName, specificInterceptors);
-    proxyFactory.addAdvisors(advisors);
-    proxyFactory.setTargetSource(targetSource);
-    customizeProxyFactory(proxyFactory);
-
-    proxyFactory.setFrozen(this.freezeProxy);
-    if (advisorsPreFiltered()) {
-        proxyFactory.setPreFiltered(true);
-    }
-
-    return proxyFactory.getProxy(getProxyClassLoader());
-}
-```
-
-#### getProxy()
-
-```java
-//ProxyFactory
-public Object getProxy(@Nullable ClassLoader classLoader) {
-    return createAopProxy().getProxy(classLoader); 
-}
-
-//ProxyCreatorSupport是ProxyFactory的父类
-protected final synchronized AopProxy createAopProxy() {
-    if (!this.active) {
-        activate();
-    }
-    return getAopProxyFactory().createAopProxy(this); //DefaultAopProxyFactory
-}
-
-//DefaultAopProxyFactory
-public AopProxy createAopProxy(AdvisedSupport config) throws AopConfigException {
-    if(config.isOptimize()||config.isProxyTargetClass()||hasNoUserSuppliedProxyInterfaces(config)){
-        Class<?> targetClass = config.getTargetClass();
-        if (targetClass.isInterface() || Proxy.isProxyClass(targetClass)) {
-            return new JdkDynamicAopProxy(config);//jdk动态代理
-        }
-        return new ObjenesisCglibAopProxy(config);//cglib代理
-    }
-    else {
-        return new JdkDynamicAopProxy(config);//config
-    }
-}
-```
-
-#### getProxy()
-
-```java
-//JdkDynamicAopProxy
-public Object getProxy(@Nullable ClassLoader classLoader) {
-    Class<?>[] proxiedInterfaces = AopProxyUtils.completeProxiedInterfaces(this.advised, true);
-    findDefinedEqualsAndHashCodeMethods(proxiedInterfaces);
-    //这里的this指的是JdkDynamicAopProxy对象，该对象实现了JDK的InvocationHandler接口
-    return Proxy.newProxyInstance(classLoader, proxiedInterfaces, this);
-}
-```
-
-### 执行目标方法
-
-#### invoke()
-
-```java
-//JdkDynamicAopProxy
-public Object invoke(Object proxy, Method method, Object[] args) throws Throwable {
-    try {
-        if (!this.equalsDefined && AopUtils.isEqualsMethod(method)) {
-            return equals(args[0]);
-        }
-        else if (!this.hashCodeDefined && AopUtils.isHashCodeMethod(method)) {
-            return hashCode();
-        }
-        else if (method.getDeclaringClass() == DecoratingProxy.class) {
-            return AopProxyUtils.ultimateTargetClass(this.advised);
-        }
-        //获取目标方法的拦截器链.
-        List<Object> chain = this.advised.getInterceptorsAndDynamicInterceptionAdvice(method, targetClass);
-        if (chain.isEmpty()) {
-            //如果拦截器链为空，则直接对目标方法进行反射调用
-            Object[] argsToUse = AopProxyUtils.adaptArgumentsIfNecessary(method, args);
-            retVal = AopUtils.invokeJoinpointUsingReflection(target, method, argsToUse);
-        }
-        else {
-            //创建Invocation对象
-            invocation = new ReflectiveMethodInvocation(proxy, target, method, args, targetClass, chain);
-            // Proceed to the joinpoint through the interceptor chain.
-            retVal = invocation.proceed();
-        }
-
-        Class<?> returnType = method.getReturnType();
-        if (retVal != null && retVal == target &&
-            returnType != Object.class && returnType.isInstance(proxy) &&
-            !RawTargetAccess.class.isAssignableFrom(method.getDeclaringClass())) {
-            // Special case: it returned "this" and the return type of the method
-            // is type-compatible. Note that we can't help if the target sets
-            // a reference to itself in another returned object.
-            retVal = proxy;
-        }
-        return retVal;
-    }
-    finally {
-        if (target != null && !targetSource.isStatic()) {
-            // Must have come from TargetSource.
-            targetSource.releaseTarget(target);
-        }
-        if (setProxyContext) {
-            // Restore old proxy.
-            AopContext.setCurrentProxy(oldProxy);
-        }
-    }
-}
-
-```
-
-
-
-```java
-public Object proceed() throws Throwable {
-    //	We start with an index of -1 and increment early.
-    if (this.currentInterceptorIndex == this.interceptorsAndDynamicMethodMatchers.size() - 1) {
-        return invokeJoinpoint();
-    }
-
-    Object interceptorOrInterceptionAdvice =
-        this.interceptorsAndDynamicMethodMatchers.get(++this.currentInterceptorIndex);
-    if (interceptorOrInterceptionAdvice instanceof InterceptorAndDynamicMethodMatcher) {
-        // Evaluate dynamic method matcher here: static part will already have
-        // been evaluated and found to match.
-        InterceptorAndDynamicMethodMatcher dm =
-            (InterceptorAndDynamicMethodMatcher) interceptorOrInterceptionAdvice;
-        Class<?> targetClass = (this.targetClass != null ? this.targetClass : this.method.getDeclaringClass());
-        if (dm.methodMatcher.matches(this.method, targetClass, this.arguments)) {
-            return dm.interceptor.invoke(this);
-        }
-        else {
-            // Dynamic matching failed.
-            // Skip this interceptor and invoke the next in the chain.
-            return proceed();
-        }
-    }
-    else {
-        // It's an interceptor, so we just invoke it: The pointcut will have
-        // been evaluated statically before this object was constructed.
-        return ((MethodInterceptor) interceptorOrInterceptionAdvice).invoke(this);
-    }
-}
-```
-
-
-
-
-
-
-
-
 
 
 
