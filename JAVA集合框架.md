@@ -268,7 +268,7 @@ HashSet和HashMap有相同的实现，前者仅仅是对后者做了一层包装
 - HashMap不保证线程安全。
 - HashMap不保证元素顺序，根据需要该容器可能会对元素重新哈希，元素的顺序也会被重新打散。
 
-将对象放入到 HashMap 或 HashSet 或者 ConcurrentHashMap 中时，有两个方法需要特别关心：`hashCode()`和`equals()`。**`hashCode()`方法决定了对象会被放到哪个`bucket`里，当多个对象的哈希值冲突时，`equals()`方法决定了这些对象是否是“同一个对象”**。所以，如果要将自定义的对象放入到`HashMap`或`HashSet`中，需要重写key对象的`hashCode()`和`equals()`方法。**在比较时，先比较key的hash和key的地址是否相同，再使用equals()方法比较两个key对象是否相同**。
+将对象放入到 HashMap 或 HashSet 或者 ConcurrentHashMap 中时：hashCode()`和`equals()`。**`hashCode()`方法决定了对象会被放到哪个`bucket`里，当多个对象的哈希值冲突时，`equals()`方法决定了这些对象是否是“同一个对象”**。所以，如果要将自定义的对象放入到`HashMap`或`HashSet`中，需要重写key对象的`hashCode()`和`equals()`方法。**在比较时，先比较key的hash和key的地址是否相同，再使用equals()方法比较两个key对象是否相同**。
 
 ### 重要字段
 
@@ -466,7 +466,7 @@ Node<K,V> removeNode(int hash, Object key, Object value, boolean matchValue, boo
 
 红黑树的修正操作包括：左旋、右旋、节点颜色变换
 
-
+**红黑树的时间复杂度为: O(lgn)**
 
 #### 红黑树的优点
 
