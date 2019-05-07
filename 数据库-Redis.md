@@ -92,6 +92,17 @@ Redis支持五种数据类型：string（字符串），hash表（哈希），li
 
 Redis 可以为每个键设置过期时间，当键过期时，会自动删除该键。对于散列表这种容器，只能为整个键设置过期时间（整个散列表），而不能为键里面的单个元素设置过期时间。
 
+## Redis 中的缓存淘汰策略
+
+将 Redis 用作缓存时, 如果内存空间用满, 就会自动驱逐老的数据。
+
+1. volatile-lru：从已设置过期时间的数据集（server.db[i].expires）中挑选最近最少使用 的数据淘汰
+2. volatile-ttl：从已设置过期时间的数据集（server.db[i].expires）中挑选将要过期的数 据淘汰
+3. volatile-random：从已设置过期时间的数据集（server.db[i].expires）中任意选择数据 淘汰
+4. allkeys-lru：从数据集（server.db[i].dict）中挑选最近最少使用的数据淘汰
+5. allkeys-random：从数据集（server.db[i].dict）中任意选择数据淘汰
+6. no-enviction（驱逐）：禁止驱逐数据
+
 ## Redis的应用
 
 ### 乐观锁
