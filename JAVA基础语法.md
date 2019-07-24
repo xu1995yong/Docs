@@ -264,6 +264,32 @@ Class类和Class文件的区别与联系
 
 ## Object类
 
+### hashCode()
+
+HashCode的存在主要是用于查找的快捷性，如Hashtable，HashMap等
+
+重写hashCode（）方法的基本规则：
+- 在程序运行过程中，同一个对象多次调用hashCode（）方法应该返回相同的值。
+- 当两个对象通过equals（）方法比较返回true时，则两个对象的hashCode（）方法返回相等的值。
+- 对象用作equals（）方法比较标准的Field，都应该用来计算hashCode值。
+
+hashCode（）方法的一般方式：
+1. 把对象内每个有意义的Field计算出一个int类型的hashCode值：
+
+    Boolean	hashCode=(f?0:1)
+    整数类型(byte  short   int  char)	hashCode=(int)f
+    long	hashCode=(int)(f^(f>>>32))
+    float	hashCode=Float.floatToIntBits(f)
+    double	long l = Double.doubleToLongBits(f);
+    hashCode=(int)(l^(l>>>32))
+    普通引用类型	hashCode=f.hashCode()
+
+2.用第一步计算出来的多个hashCode值组合计算出一个hashCode值返回，为了避免直接相加产生偶然相等，可以通过为各个Field乘以任意一个质数后再相加。
+
+
+
+
+
 ### 常用API
 
 ```java

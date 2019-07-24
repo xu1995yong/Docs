@@ -26,8 +26,28 @@
 
 
 
-## Spring MVC的前端控制器模式
+## SpringMVC中的线程安全性
+
+在Springmvc中，Controller都是单例的，也是非线程安全的。这意味着每个request过来，系统都会用原有的instance去处理，这样导致了两个结果：一是我们不用每次创建Controller，二是减少了对象创建和垃圾收集的时间。由于只有一个Controller的实例，当多个线程调用的时候，它里面的成员变量就不是线程安全的了，会发生窜数据的问题。
+
+
+
+## Spring MVC中的DispatcherServlet
 前端控制器模式（Front Controller Pattern）是用来提供一个集中的请求处理机制，所有的请求都将由一个单一的处理程序处理。
+
+DispatcherServlet提供Spring MVC的集中访问点，而且负责职责的分派，而且与Spring IoC容器无缝集成，从而可以获得Spring的所有好处。DispatcherServlet主要用作职责调度工作，本身主要用于控制流程，主要职责如下：
+
+1、文件上传解析，如果请求类型是multipart将通过MultipartResolver进行文件上传解析；
+2、通过HandlerMapping，将请求映射到处理器（返回一个HandlerExecutionChain，它包括一个处理器、多个HandlerInterceptor拦截器）；
+3、通过HandlerAdapter支持多种类型的处理器(HandlerExecutionChain中的处理器)；
+4、通过ViewResolver解析逻辑视图名到具体视图实现；
+5、本地化解析；
+6、渲染具体的视图等；
+7、如果执行过程中遇到异常将交给HandlerExceptionResolver来解析。
+
+
+
+
 
 ## SpringMVC的初始化
 
@@ -289,13 +309,13 @@ protected void configureAndRefreshWebApplicationContext(ConfigurableWebApplicati
 
 
 
-### 父子容器的区别
+### SpringMVC中的父子容器
 
-父容器：保存数据源、服务层、DAO层、事务的bean。
+父容器：保存数据源、服务层Service、DAO层、事务的bean。
 
 子容器：保存MVC相关的controller的bean。
 
-
+![img](https://img-blog.csdn.net/20170324164207194?watermark/2/text/aHR0cDovL2Jsb2cuY3Nkbi5uZXQvSkpfbmFu/font/5a6L5L2T/fontsize/400/fill/I0JBQkFCMA==/dissolve/70/gravity/Center)
 
 ## SpringMVC请求流程分析
 
@@ -424,7 +444,8 @@ protected void doDispatch(HttpServletRequest request, HttpServletResponse respon
         //检查是不是上传请求
         processedRequest = checkMultipart(request);
         multipartRequestParsed = (processedRequest != request);
-        // 根据请求获取相应的Handler和拦截器组成HandlerExecutionChain。如果无法找到，则报错返回
+        // 根据请求调用已加载的HandlerMapping对象的getHandler()方法，获取相应的Handler和拦截器组成
+        // HandlerExecutionChain。如果无法找到，则报错返回
         mappedHandler = getHandler(processedRequest);
         if (mappedHandler == null) {
             noHandlerFound(processedRequest, response);
@@ -475,3 +496,77 @@ protected void doDispatch(HttpServletRequest request, HttpServletResponse respon
 }
 ```
 
+## SpringMVC中的九大组件
+
+- HandlerMapping：根据request查找相应的处理器handler和Interceptors。
+- HandlerAdapter：调用handler处理request。
+- HandlerExceptionResolver：根据异常设置ModelAndView，之后再交给render方法渲染。
+- ViewResolver：
+- RequestToViewNameTranslator：
+- LOcaleResolver：
+- ThemeResolver：
+- MultipartResolver：
+- FlashMapManager：
+
+## SpringMVC中的HandlerMapping
+
+![HandlerMappingæ ¸å¿ç±»å¾](http://www.51gjie.com/Images/image1/tyu4scq1.x2u.jpg)
+
+### AbstractHandlerMapping
+
+#### getHandler(HttpServletRequest request)
+
+```java
+//org.springframework.web.servlet.handler.AbstractHandlerMapping
+public final HandlerExecutionChain getHandler(HttpServletRequest request) throws Exception {
+    Object handler = getHandlerInternal(request);//由子类实现
+    if (handler == null) {
+        handler = getDefaultHandler();  //获取默认的handler
+    }
+    if (handler == null) {
+        return null;
+    }
+    //如果找到的handler是String类型，就以该String为名到SpringMVC的容器中查找该bean
+    if (handler instanceof String) { 
+        String handlerName = (String) handler;
+        handler = obtainApplicationContext().getBean(handlerName);
+    }
+	//使用找到的handler创建出HandlerExecutionChain类型的变量，然后将adaptedInterceptors和MappedInterceptor添加到HandlerExecutionChain中
+    HandlerExecutionChain executionChain = getHandlerExecutionChain(handler, request);
+
+    if (CorsUtils.isCorsRequest(request)) {
+        CorsConfiguration globalConfig = this.corsConfigurationSource.getCorsConfiguration(request);
+        CorsConfiguration handlerConfig = getCorsConfiguration(handler, request);
+        CorsConfiguration config = (globalConfig != null ? globalConfig.combine(handlerConfig) : handlerConfig);
+        executionChain = getCorsHandlerExecutionChain(request, executionChain, config);
+    }
+
+    return executionChain;
+}
+```
+
+#### getHandlerExecutionChain() 
+
+```java
+protected HandlerExecutionChain getHandlerExecutionChain(Object handler, HttpServletRequest request) {
+    HandlerExecutionChain chain = (handler instanceof HandlerExecutionChain ?
+                                   (HandlerExecutionChain) handler : 
+                                   new HandlerExecutionChain(handler));
+
+    String lookupPath = this.urlPathHelper.getLookupPathForRequest(request);
+    for (HandlerInterceptor interceptor : this.adaptedInterceptors) {
+        if (interceptor instanceof MappedInterceptor) {
+            MappedInterceptor mappedInterceptor = (MappedInterceptor) interceptor;
+            if (mappedInterceptor.matches(lookupPath, this.pathMatcher)) {
+                chain.addInterceptor(mappedInterceptor.getInterceptor());
+            }
+        }
+        else {
+            chain.addInterceptor(interceptor);
+        }
+    }
+    return chain;
+}
+```
+
+## SpringMVC中的HandlerAdapter
