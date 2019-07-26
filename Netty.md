@@ -1,12 +1,249 @@
 # Netty知识点总结
 
-## Netty的特点
+## Netty介绍
 
 Netty是一个高性能、异步事件驱动的NIO框架，它提供了对TCP、UDP和文件传输的支持，作为一个异步NIO框架，Netty的所有IO操作都是异步非阻塞的，通过Future-Listener机制，用户可以方便的主动获取或者通过通知机制获得IO操作结果。
+
+不选择JAVA原生NIO和IO的原因
+基于IO的经典同步堵塞模型：
+经典的IO模型也就是传统的服务器端同步阻塞I/O处理（也就是BIO，Blocking I/O）的经典编程模型，当我们每得到一个新的连接时，就会开启一个线程来处理这个连接的任务。之所以使用多线程，主要原因在于socket.accept()、socket.read()、socket.write()三个主要函数都是同步阻塞的，当一个连接在处理I/O的时候，系统是阻塞的，如果是单线程的话必然就挂死在那里；但CPU是被释放出来的，开启多线程，就可以让CPU去处理更多的事情。
+
+因此这个模型最本质的问题在于，严重依赖于线程。但线程是很”贵”的资源，主要表现在：
+
+线程的创建和销毁成本很高，在Linux这样的操作系统中，线程本质上就是一个进程。创建和销毁都是重量级的系统函数。 
+线程本身占用较大内存，像Java的线程栈，一般至少分配512K～1M的空间，如果系统中的线程数过千，恐怕整个JVM的内存都会被吃掉一半。
+
+线程的切换成本是很高的。操作系统发生线程切换的时候，需要保留线程的上下文，然后执行系统调用。如果线程数过高，可能执行线程切换的时间甚至会大于线程执行的时间，这时候带来的表现往往是系统load偏高、CPU sy使用率特别高（超过20%以上)，导致系统几乎陷入不可用的状态。
+
+容易造成锯齿状的系统负载。因为系统负载是用活动线程数或CPU核心数，一旦线程数量高但外部网络环境不是很稳定，就很容易造成大量请求的结果同时返回，激活大量阻塞线程从而使系统负载压力过大。
+参考：[Java NIO浅析]http://mp.weixin.qq.com/s/HhwaXd8x7zONr8N1ojSnsQ
+
+基于NIO的异步模型：
+NIO是一种同步非阻塞的I/O模型，也是I/O多路复用的基础，而且已经被越来越多地应用到大型应用服务器，成为解决高并发与大量连接、I/O处理问题的有效方式。[Java NIO介绍（二）————无堵塞io和Selector简单介绍]
+
+不使用NIO的原因：
+
+NIO的类库和API繁杂。需要很多额外的技能做铺垫。例如需要很熟悉Java多线程编程、Selector线程模型。导致工作量和开发难度都非常大。
+扩展 ByteBuffer：NIO和Netty都有ByteBuffer来操作数据，但是NIO的ByteBuffer长度固定而且操作复杂，许多操作甚至都需要自己实现。而且它的构造函数是私有，不能扩展。Netty 提供了自己的 
+ByteBuffer 实现， Netty 通过一些简单的 APIs 对 ByteBuffer 进行构造、使用和操作，以此来解决 NIO 中的一些限制。
+NIO 对缓冲区的聚合和分散操作可能会操作内存泄露，到jdk7才解决了内存泄露的问题
+存在臭名昭著的epoll bug，导致Selector空轮询：这个bug会导致linux上导致cpu 100%：http://www.blogjava.net/killme2008/archive/2009/09/28/296826.html
+为什么选择Netty
+API使用简单，开发门槛低。
+功能强大，预置了多种编解码功能，支持多种协议开发。
+定制能力强，可以通过ChannelHadler进行扩展。
+性能高，对比其它NIO框架，Netty综合性能最优。
+经历了大规模的应用验证。在互联网、大数据、网络游戏、企业应用、电信软件得到成功，很多著名的框架通信底层就用了Netty，比如Dubbo
+稳定，修复了NIO出现的所有Bug。
+切换IO和NIO，因为IO和NIO的API完全不同，相互切换非常困难。
+
+
+
+Nettty 有如下几个核心组件：
+
+- Channel
+- ChannelFuture
+- EventLoop
+- ChannelHandler
+- ChannelPipeline
+
+
 
 
 
 ## Netty中的NioEventLoopGroup
+
+无锁化的串行设计
+
+```java
+protected MultithreadEventExecutorGroup(int nThreads, Executor executor,
+                                        EventExecutorChooserFactory chooserFactory, Object... args) {
+    if (nThreads <= 0) {
+        throw new IllegalArgumentException(String.format("nThreads: %d (expected: > 0)", nThreads));
+    }
+
+    if (executor == null) {
+        executor = new ThreadPerTaskExecutor(newDefaultThreadFactory());//任务执行器，每
+    }
+
+    children = new EventExecutor[nThreads];
+
+    for (int i = 0; i < nThreads; i ++) {
+        boolean success = false;
+        try {
+            children[i] = newChild(executor, args);
+            success = true;
+        } catch (Exception e) {
+            // TODO: Think about if this is a good exception type
+            throw new IllegalStateException("failed to create a child event loop", e);
+        } finally {
+            if (!success) {
+                for (int j = 0; j < i; j ++) {
+                    children[j].shutdownGracefully();
+                }
+
+                for (int j = 0; j < i; j ++) {
+                    EventExecutor e = children[j];
+                    try {
+                        while (!e.isTerminated()) {
+                            e.awaitTermination(Integer.MAX_VALUE, TimeUnit.SECONDS);
+                        }
+                    } catch (InterruptedException interrupted) {
+                        // Let the caller handle the interruption.
+                        Thread.currentThread().interrupt();
+                        break;
+                    }
+                }
+            }
+        }
+    }
+
+    chooser = chooserFactory.newChooser(children);
+
+    final FutureListener<Object> terminationListener = new FutureListener<Object>() {
+        @Override
+        public void operationComplete(Future<Object> future) throws Exception {
+            if (terminatedChildren.incrementAndGet() == children.length) {
+                terminationFuture.setSuccess(null);
+            }
+        }
+    };
+
+    for (EventExecutor e: children) {
+        e.terminationFuture().addListener(terminationListener);
+    }
+
+    Set<EventExecutor> childrenSet = new LinkedHashSet<EventExecutor>(children.length);
+    Collections.addAll(childrenSet, children);
+    readonlyChildren = Collections.unmodifiableSet(childrenSet);
+}
+```
+
+
+
+## NioEventLoop
+
+
+
+```java
+private static void doBind0(final ChannelFuture regFuture, final Channel channel,final SocketAddress 	localAddress, final ChannelPromise promise) {
+
+    // This method is invoked before channelRegistered() is triggered.  Give user handlers a chance to set up
+    // the pipeline in its channelRegistered() implementation.
+    channel.eventLoop().execute(new Runnable() {
+        @Override
+        public void run() {
+            if (regFuture.isSuccess()) {
+                channel.bind(localAddress, promise).addListener(ChannelFutureListener.CLOSE_ON_FAILURE);
+            } else {
+                promise.setFailure(regFuture.cause());
+            }
+        }
+    });
+}
+
+public void execute(Runnable task) {
+    if (task == null) {
+        throw new NullPointerException("task");
+    }
+
+    boolean inEventLoop = inEventLoop();  //返回false
+    addTask(task);
+    if (!inEventLoop) {
+        startThread();
+        if (isShutdown() && removeTask(task)) {
+            reject();
+        }
+    }
+    if (!addTaskWakesUp && wakesUpForTask(task)) {
+        wakeup(inEventLoop);
+    }
+}
+
+private void startThread() {
+    if (state == ST_NOT_STARTED) {
+        if (STATE_UPDATER.compareAndSet(this, ST_NOT_STARTED, ST_STARTED)) {//CAS的方式判断
+            try {
+                doStartThread();
+            } catch (Throwable cause) {
+                STATE_UPDATER.set(this, ST_NOT_STARTED);
+                PlatformDependent.throwException(cause);
+            }
+        }
+    }
+}
+private void doStartThread() {
+    assert thread == null;
+    executor.execute(new Runnable() {
+        @Override
+        public void run() {
+            thread = Thread.currentThread();
+            if (interrupted) {
+                thread.interrupt();
+            }
+
+            boolean success = false;
+            updateLastExecutionTime();
+            try {
+                SingleThreadEventExecutor.this.run();
+                success = true;
+            } catch (Throwable t) {
+                logger.warn("Unexpected exception from an event executor: ", t);
+            } finally {
+                for (;;) {
+                    int oldState = state;
+                    if (oldState >= ST_SHUTTING_DOWN || STATE_UPDATER.compareAndSet(
+                        SingleThreadEventExecutor.this, oldState, ST_SHUTTING_DOWN)) {
+                        break;
+                    }
+                }
+
+                // Check if confirmShutdown() was called at the end of the loop.
+                if (success && gracefulShutdownStartTime == 0) {
+                    if (logger.isErrorEnabled()) {
+                        logger.error("Buggy " + EventExecutor.class.getSimpleName() + " implementation; " +
+                                     SingleThreadEventExecutor.class.getSimpleName() + ".confirmShutdown() must " +
+                                     "be called before run() implementation terminates.");
+                    }
+                }
+
+                try {
+                    // Run all remaining tasks and shutdown hooks.
+                    for (;;) {
+                        if (confirmShutdown()) {
+                            break;
+                        }
+                    }
+                } finally {
+                    try {
+                        cleanup();
+                    } finally {
+                        STATE_UPDATER.set(SingleThreadEventExecutor.this, ST_TERMINATED);
+                        threadLock.release();
+                        if (!taskQueue.isEmpty()) {
+                            if (logger.isWarnEnabled()) {
+                                logger.warn("An event executor terminated with " +
+                                            "non-empty task queue (" + taskQueue.size() + ')');
+                            }
+                        }
+
+                        terminationFuture.setSuccess(null);
+                    }
+                }
+            }
+        }
+    });
+}
+
+```
+
+
+
+
+
+
+
+
 
 
 
