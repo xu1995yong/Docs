@@ -125,8 +125,19 @@ volatile关键字禁止指令重排序有两层意思：
 在synchronized关键字中，Java中的所有对象都可以作为锁：
 
  - 对于普通同步方法，锁的是当前实例对象。
+
  - 对于静态同步方法，锁的是当前类的Class对象。
- - 对于同步方法块，锁的是synchronized括号中的对象。
+
+    - 方法级的同步是隐式，即无需通过字节码指令来控制的，它实现在方法调用和返回操作之中。JVM可以从方法常量池中的方法表结构(method_info Structure) 中的 ACC_SYNCHRONIZED 访问标志区分一个方法是否同步方法。当方法调用时，调用指令将会 检查方法的 ACC_SYNCHRONIZED 访问标志是否被设置，如果设置了，执行线程将先持有monitor（虚拟机规范中用的是管程一词）， 然后再执行方法，最后再方法完成(无论是正常完成还是非正常完成)时释放monitor。在方法执行期间，执行线程持有了monitor，其他任何线程都无法再获得同一个monitor。如果一个同步方法执行期间抛出了异常，并且在方法内部无法处理此异常，那这个同步方法所持有的monitor将在异常抛到同步方法之外时自动释放。
+
+
+ - 对于同步代码块，锁的是synchronized括号中的对象。
+
+    - 同步代码块的实现使用的是monitorenter 和 monitorexit 指令。
+
+### synchronized锁的实现原理
+
+
 
 ### synchronized锁的4种状态
 
@@ -173,6 +184,36 @@ synchronized关键字用的锁就保存在对象头的MarkWord中。在运行期
 
 #### 3. 重量级锁
 
+Java早期版本中，synchronized属于重量级锁，效率低下，因为监视器锁（monitor）是依赖于底层的操作系统的Mutex Lock来实现的，而操作系统实现线程之间的切换时需要从用户态转换到核心态，这个状态之间的转换需要相对比较长的时间，时间成本相对较高，这也是为什么早期的synchronized效率低的原因。
+
+重量级锁中，被锁对象的对象头的MarkWord中，指向的是monitor对象的起始地址，monitor 是Java虚拟机提供的高级同步原语，monitor对象存在于每个Java对象的对象头中(存储的指针的指向)，synchronized锁便是通过这种方式获取锁的，也是为什么Java中任意对象可以作为锁的原因，在HotSpot中，monitor由monitor对象r实现，其主要数据结构如下：
+
+```c
+
+ObjectMonitor() {
+    _header       = NULL;
+    _count        = 0; //记录个数
+    _waiters      = 0,
+    _recursions   = 0;
+    _object       = NULL;
+    _owner        = NULL; //_owner指向持有ObjectMonitor对象的线程
+    _WaitSet      = NULL; //处于wait状态的线程，会被加入到_WaitSet
+    _WaitSetLock  = 0 ;
+    _Responsible  = NULL ;
+    _succ         = NULL ;
+    _cxq          = NULL ;
+    FreeNext      = NULL ;
+    _EntryList    = NULL ; //处于等待锁block状态的线程，会被加入到该列表
+    _SpinFreq     = 0 ;
+    _SpinClock    = 0 ;
+    OwnerIsThread = 0 ;
+  }
+```
+
+
+
+
+
 
 
 ### Synchronized的其他优化
@@ -182,6 +223,15 @@ synchronized关键字用的锁就保存在对象头的MarkWord中。在运行期
 **2、锁粗化（Lock Coarsening）：**将多次连接在一起的加锁、解锁操作合并为一次，将多个连续的锁扩展成一个范围更大的锁。比如每次调用stringBuffer.append()方法都需要加锁和解锁，如果虚拟机检测到有一系列连串的对同一个对象加锁和解锁操作，就会将其合并成一次范围更大的加锁和解锁操作，即在第一次append方法时进行加锁，最后一次append方法结束后进行解锁。
 
 **3、锁消除（Lock Elimination）：**即删除不必要的加锁操作。根据代码逃逸技术，如果判断到一段代码中，堆上的数据不会逃逸出当前线程，那么可以认为这段代码是线程安全的，不必要加锁。
+
+
+
+### synchronized与wait方法和notify/notifyAll
+
+在使用wait方法和notify/notifyAll方法时，必须处于synchronized代码块或者synchronized方法中，否则就会抛出IllegalMonitorStateException异常，这是因为notify/notifyAll和wait方法依赖于monitor对象，在前面的分析中，我们知道monitor 存在于对象头的Mark Word 中(存储monitor引用指针)，而synchronized关键字可以获取 monitor ，这也就是为什么notify/notifyAll和wait方法必须在synchronized代码块或者synchronized方法调用的原因。
+
+需要特别理解的一点是，与sleep方法不同的是wait方法调用完成后，线程将被暂停，但wait方法将会释放当前持有的监视器锁(monitor)，直到有线程调用notify/notifyAll方法后方能继续执行，而sleep方法只让线程休眠并不释放锁。同时notify/notifyAll方法调用后，并不会马上释放监视器锁，而是在相应的synchronized(){}/synchronized方法执行结束后才自动释放锁。
+
 
 
 
