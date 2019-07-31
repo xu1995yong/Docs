@@ -1,9 +1,10 @@
 # Netty知识点总结
 
-## Netty介绍
+## Netty的特点
 
 Netty是一个高性能、异步事件驱动的NIO框架，它提供了对TCP、UDP和文件传输的支持，作为一个异步NIO框架，Netty的所有IO操作都是异步非阻塞的，通过Future-Listener机制，用户可以方便的主动获取或者通过通知机制获得IO操作结果。
 
+<<<<<<< HEAD
 <<<<<<< HEAD
  
 =======
@@ -71,201 +72,11 @@ Nettty 有如下几个核心组件：
 
 
 >>>>>>> 591bb27... add Netty
+=======
+>>>>>>> 7530f99... add
 
 
 ## Netty中的NioEventLoopGroup
-
-无锁化的串行设计
-
-```java
-protected MultithreadEventExecutorGroup(int nThreads, Executor executor,
-                                        EventExecutorChooserFactory chooserFactory, Object... args) {
-    if (nThreads <= 0) {
-        throw new IllegalArgumentException(String.format("nThreads: %d (expected: > 0)", nThreads));
-    }
-
-    if (executor == null) {
-        executor = new ThreadPerTaskExecutor(newDefaultThreadFactory());//任务执行器，每
-    }
-
-    children = new EventExecutor[nThreads];
-
-    for (int i = 0; i < nThreads; i ++) {
-        boolean success = false;
-        try {
-            children[i] = newChild(executor, args);
-            success = true;
-        } catch (Exception e) {
-            // TODO: Think about if this is a good exception type
-            throw new IllegalStateException("failed to create a child event loop", e);
-        } finally {
-            if (!success) {
-                for (int j = 0; j < i; j ++) {
-                    children[j].shutdownGracefully();
-                }
-
-                for (int j = 0; j < i; j ++) {
-                    EventExecutor e = children[j];
-                    try {
-                        while (!e.isTerminated()) {
-                            e.awaitTermination(Integer.MAX_VALUE, TimeUnit.SECONDS);
-                        }
-                    } catch (InterruptedException interrupted) {
-                        // Let the caller handle the interruption.
-                        Thread.currentThread().interrupt();
-                        break;
-                    }
-                }
-            }
-        }
-    }
-
-    chooser = chooserFactory.newChooser(children);
-
-    final FutureListener<Object> terminationListener = new FutureListener<Object>() {
-        @Override
-        public void operationComplete(Future<Object> future) throws Exception {
-            if (terminatedChildren.incrementAndGet() == children.length) {
-                terminationFuture.setSuccess(null);
-            }
-        }
-    };
-
-    for (EventExecutor e: children) {
-        e.terminationFuture().addListener(terminationListener);
-    }
-
-    Set<EventExecutor> childrenSet = new LinkedHashSet<EventExecutor>(children.length);
-    Collections.addAll(childrenSet, children);
-    readonlyChildren = Collections.unmodifiableSet(childrenSet);
-}
-```
-
-
-
-## NioEventLoop
-
-
-
-```java
-private static void doBind0(final ChannelFuture regFuture, final Channel channel,final SocketAddress 	localAddress, final ChannelPromise promise) {
-
-    // This method is invoked before channelRegistered() is triggered.  Give user handlers a chance to set up
-    // the pipeline in its channelRegistered() implementation.
-    channel.eventLoop().execute(new Runnable() {
-        @Override
-        public void run() {
-            if (regFuture.isSuccess()) {
-                channel.bind(localAddress, promise).addListener(ChannelFutureListener.CLOSE_ON_FAILURE);
-            } else {
-                promise.setFailure(regFuture.cause());
-            }
-        }
-    });
-}
-
-public void execute(Runnable task) {
-    if (task == null) {
-        throw new NullPointerException("task");
-    }
-
-    boolean inEventLoop = inEventLoop();  //返回false
-    addTask(task);
-    if (!inEventLoop) {
-        startThread();
-        if (isShutdown() && removeTask(task)) {
-            reject();
-        }
-    }
-    if (!addTaskWakesUp && wakesUpForTask(task)) {
-        wakeup(inEventLoop);
-    }
-}
-
-private void startThread() {
-    if (state == ST_NOT_STARTED) {
-        if (STATE_UPDATER.compareAndSet(this, ST_NOT_STARTED, ST_STARTED)) {//CAS的方式判断
-            try {
-                doStartThread();
-            } catch (Throwable cause) {
-                STATE_UPDATER.set(this, ST_NOT_STARTED);
-                PlatformDependent.throwException(cause);
-            }
-        }
-    }
-}
-private void doStartThread() {
-    assert thread == null;
-    executor.execute(new Runnable() {
-        @Override
-        public void run() {
-            thread = Thread.currentThread();
-            if (interrupted) {
-                thread.interrupt();
-            }
-
-            boolean success = false;
-            updateLastExecutionTime();
-            try {
-                SingleThreadEventExecutor.this.run();
-                success = true;
-            } catch (Throwable t) {
-                logger.warn("Unexpected exception from an event executor: ", t);
-            } finally {
-                for (;;) {
-                    int oldState = state;
-                    if (oldState >= ST_SHUTTING_DOWN || STATE_UPDATER.compareAndSet(
-                        SingleThreadEventExecutor.this, oldState, ST_SHUTTING_DOWN)) {
-                        break;
-                    }
-                }
-
-                // Check if confirmShutdown() was called at the end of the loop.
-                if (success && gracefulShutdownStartTime == 0) {
-                    if (logger.isErrorEnabled()) {
-                        logger.error("Buggy " + EventExecutor.class.getSimpleName() + " implementation; " +
-                                     SingleThreadEventExecutor.class.getSimpleName() + ".confirmShutdown() must " +
-                                     "be called before run() implementation terminates.");
-                    }
-                }
-
-                try {
-                    // Run all remaining tasks and shutdown hooks.
-                    for (;;) {
-                        if (confirmShutdown()) {
-                            break;
-                        }
-                    }
-                } finally {
-                    try {
-                        cleanup();
-                    } finally {
-                        STATE_UPDATER.set(SingleThreadEventExecutor.this, ST_TERMINATED);
-                        threadLock.release();
-                        if (!taskQueue.isEmpty()) {
-                            if (logger.isWarnEnabled()) {
-                                logger.warn("An event executor terminated with " +
-                                            "non-empty task queue (" + taskQueue.size() + ')');
-                            }
-                        }
-
-                        terminationFuture.setSuccess(null);
-                    }
-                }
-            }
-        }
-    });
-}
-
-```
-
-
-
-
-
-
-
-
 
 
 
