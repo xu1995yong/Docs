@@ -36,6 +36,7 @@ API使用简单，开发门槛低。
 经历了大规模的应用验证。在互联网、大数据、网络游戏、企业应用、电信软件得到成功，很多著名的框架通信底层就用了Netty，比如Dubbo
 稳定，修复了NIO出现的所有Bug。
 切换IO和NIO，因为IO和NIO的API完全不同，相互切换非常困难。
+<<<<<<< HEAD
 
 <<<<<<< HEAD
 =======
@@ -46,6 +47,8 @@ API使用简单，开发门槛低。
 =======
 >>>>>>> 修改冲突
 >>>>>>> b3febf9... 修改冲突
+=======
+>>>>>>> bb637aa... add
 ## Netty中的组件介绍
 
 - **Bootstrap**：netty的辅助启动器，netty客户端和服务器的入口，Bootstrap是创建客户端连接的启动器，ServerBootstrap是监听服务端端口的启动器。
@@ -56,6 +59,7 @@ API使用简单，开发门槛低。
 - **Unsafe**：顾名思义这个类就是不安全的意思，但并不是说这个类本身不安全，而是不要在应用程序里面直接使用Unsafe以及他的衍生类对象，实际上Unsafe操作都是在reactor线程中被执行。Unsafe是Channel的内部类，并且是protected修饰的，所以在类的设计上已经保证了不被用户代码调用。Unsafe的操作都是和jdk底层相关。EventLoop轮询到read或accept事件时，会调用unsafe.read()，unsafe再调用ChannelPipeline去处理事件；当发生write事件时，所有写事件都会放在EventLoop的task中，然后从ChannelPipeline的tail传播到head，通过Unsafe写到网络中。
 
 <<<<<<< HEAD
+<<<<<<< HEAD
 =======
 <<<<<<< HEAD
 =======
@@ -66,6 +70,8 @@ API使用简单，开发门槛低。
 >>>>>>> 修改冲突
 >>>>>>> 修改冲突
 >>>>>>> b3febf9... 修改冲突
+=======
+>>>>>>> bb637aa... add
 
 
 Nettty 有如下几个核心组件：
@@ -82,192 +88,8 @@ Nettty 有如下几个核心组件：
 >>>>>>> add
 
 
+
 ## Netty中的NioEventLoopGroup
-
-
-
-    if (executor == null) {
-        executor = new ThreadPerTaskExecutor(newDefaultThreadFactory());//任务执行器，每
-    }
-
-    children = new EventExecutor[nThreads];
-
-    for (int i = 0; i < nThreads; i ++) {
-        boolean success = false;
-        try {
-            children[i] = newChild(executor, args);
-            success = true;
-        } catch (Exception e) {
-            // TODO: Think about if this is a good exception type
-            throw new IllegalStateException("failed to create a child event loop", e);
-        } finally {
-            if (!success) {
-                for (int j = 0; j < i; j ++) {
-                    children[j].shutdownGracefully();
-                }
-
-                for (int j = 0; j < i; j ++) {
-                    EventExecutor e = children[j];
-                    try {
-                        while (!e.isTerminated()) {
-                            e.awaitTermination(Integer.MAX_VALUE, TimeUnit.SECONDS);
-                        }
-                    } catch (InterruptedException interrupted) {
-                        // Let the caller handle the interruption.
-                        Thread.currentThread().interrupt();
-                        break;
-                    }
-                }
-            }
-        }
-    }
-
-    chooser = chooserFactory.newChooser(children);
-
-    final FutureListener<Object> terminationListener = new FutureListener<Object>() {
-        @Override
-        public void operationComplete(Future<Object> future) throws Exception {
-            if (terminatedChildren.incrementAndGet() == children.length) {
-                terminationFuture.setSuccess(null);
-            }
-        }
-    };
-
-    for (EventExecutor e: children) {
-        e.terminationFuture().addListener(terminationListener);
-    }
-
-    Set<EventExecutor> childrenSet = new LinkedHashSet<EventExecutor>(children.length);
-    Collections.addAll(childrenSet, children);
-    readonlyChildren = Collections.unmodifiableSet(childrenSet);
-}
-```
-
-
-
-## NioEventLoop
-
-
-
-```java
-private static void doBind0(final ChannelFuture regFuture, final Channel channel,final SocketAddress 	localAddress, final ChannelPromise promise) {
-
-    // This method is invoked before channelRegistered() is triggered.  Give user handlers a chance to set up
-    // the pipeline in its channelRegistered() implementation.
-    channel.eventLoop().execute(new Runnable() {
-        @Override
-        public void run() {
-            if (regFuture.isSuccess()) {
-                channel.bind(localAddress, promise).addListener(ChannelFutureListener.CLOSE_ON_FAILURE);
-            } else {
-                promise.setFailure(regFuture.cause());
-            }
-        }
-    });
-}
-
-public void execute(Runnable task) {
-    if (task == null) {
-        throw new NullPointerException("task");
-    }
-
-    boolean inEventLoop = inEventLoop();  //返回false
-    addTask(task);
-    if (!inEventLoop) {
-        startThread();
-        if (isShutdown() && removeTask(task)) {
-            reject();
-        }
-    }
-    if (!addTaskWakesUp && wakesUpForTask(task)) {
-        wakeup(inEventLoop);
-    }
-}
-
-private void startThread() {
-    if (state == ST_NOT_STARTED) {
-        if (STATE_UPDATER.compareAndSet(this, ST_NOT_STARTED, ST_STARTED)) {//CAS的方式判断
-            try {
-                doStartThread();
-            } catch (Throwable cause) {
-                STATE_UPDATER.set(this, ST_NOT_STARTED);
-                PlatformDependent.throwException(cause);
-            }
-        }
-    }
-}
-private void doStartThread() {
-    assert thread == null;
-    executor.execute(new Runnable() {
-        @Override
-        public void run() {
-            thread = Thread.currentThread();
-            if (interrupted) {
-                thread.interrupt();
-            }
-
-            boolean success = false;
-            updateLastExecutionTime();
-            try {
-                SingleThreadEventExecutor.this.run();
-                success = true;
-            } catch (Throwable t) {
-                logger.warn("Unexpected exception from an event executor: ", t);
-            } finally {
-                for (;;) {
-                    int oldState = state;
-                    if (oldState >= ST_SHUTTING_DOWN || STATE_UPDATER.compareAndSet(
-                        SingleThreadEventExecutor.this, oldState, ST_SHUTTING_DOWN)) {
-                        break;
-                    }
-                }
-
-                // Check if confirmShutdown() was called at the end of the loop.
-                if (success && gracefulShutdownStartTime == 0) {
-                    if (logger.isErrorEnabled()) {
-                        logger.error("Buggy " + EventExecutor.class.getSimpleName() + " implementation; " +
-                                     SingleThreadEventExecutor.class.getSimpleName() + ".confirmShutdown() must " +
-                                     "be called before run() implementation terminates.");
-                    }
-                }
-
-                try {
-                    // Run all remaining tasks and shutdown hooks.
-                    for (;;) {
-                        if (confirmShutdown()) {
-                            break;
-                        }
-                    }
-                } finally {
-                    try {
-                        cleanup();
-                    } finally {
-                        STATE_UPDATER.set(SingleThreadEventExecutor.this, ST_TERMINATED);
-                        threadLock.release();
-                        if (!taskQueue.isEmpty()) {
-                            if (logger.isWarnEnabled()) {
-                                logger.warn("An event executor terminated with " +
-                                            "non-empty task queue (" + taskQueue.size() + ')');
-                            }
-                        }
-
-                        terminationFuture.setSuccess(null);
-                    }
-                }
-            }
-        }
-    });
-}
-
-```
-
-
-
-
-
-
-
-
 
 
 
