@@ -173,7 +173,19 @@ B树是一种多叉平衡树。它是为磁盘设计的一种平衡查找树。�
 ![img](https://pic2.zhimg.com/80/v2-2c2264cc1c6c603dfeca4f84a2575901_hd.jpg)
 
 ### B+树
+ B+树是B-树的变体，也是一种多路搜索树：
 
+       1.其定义基本与B-树同，除了：
+    
+       2.非叶子结点的子树指针与关键字个数相同；
+    
+       3.非叶子结点的子树指针P[i]，指向关键字值属于[K[i], K[i+1])的子树
+
+（B-树是开区间）；
+
+       5.为所有叶子结点增加一个链指针；
+    
+       6.所有关键字都在叶子结点出现；
 B+树是针对文件系统产生的一种B树的变形。与B树相比，具有如下特点：
 
 1. 磁盘读写代价更低：所有的非叶子节点仅包含索引信息。这样在一个磁盘的盘块中能容纳的非叶子节点数更多，在读入内存时一次读取的有效信息更多，IO次数就会相应减少。
@@ -182,18 +194,16 @@ B+树是针对文件系统产生的一种B树的变形。与B树相比，具有�
 
 ### 为什么使用B+树
 
-红黑树等数据结构也可以用来实现索引，但是文件系统及数据库系统普遍采用B-/+Tree作为索引结构。MySQL 是基于磁盘的数据库系统,索引往往以索引文件的形式存储的磁盘上,索引查找过程中就要产生磁盘I/O消耗,相对于内存存取，I/O存取的消耗要高几个数量级,索引的结构组织要尽量减少查找过程中磁盘I/O的存取次数。为什么使用B-/+Tree，还跟磁盘存取原理有关。
+MySQL 是基于磁盘的数据库系统，索引往往以索引文件的形式存储的磁盘上，索引的结构组织要尽量减少查找过程中磁盘I/O的存取次数。为什么使用B-/+Tree，还跟磁盘存取原理有关。
 
 ### 局部性原理与磁盘预读
 
 由于磁盘的存取速度与内存之间鸿沟,为了提高效率,要尽量减少磁盘I/O.磁盘往往不是严格按需读取，而是每次都会预读,磁盘读取完需要的数据,会顺序向后读一定长度的数据放入内存。而这样做的理论依据是计算机科学中著名的局部性原理：
+当一个数据被用到时，其附近的数据也通常会马上被使用，程序运行期间所需要的数据通常比较集中
 
-```
-当一个数据被用到时，其附近的数据也通常会马上被使用
-程序运行期间所需要的数据通常比较集中
-```
 
 由于磁盘顺序读取的效率很高(不需要寻道时间，只需很少的旋转时间)，因此对于具有局部性的程序来说，预读可以提高I/O效率.预读的长度一般为页(page)的整倍数。
+在加上B+树出度较大，整个树扁平。逻辑上相近的节点，在物理磁盘上也相近。能最大化利用局部性原理。尽量减少IO次数。
 
 ```
 MySQL(默认使用InnoDB引擎),将记录按照页的方式进行管理,每页大小默认为16K(这个值可以修改).linux 默认页大小为4K
@@ -220,7 +230,10 @@ InnoDB存储引擎表是索引组织表，表中数据按照主键顺序存放�
 
 辅助索引中，叶子节点并不包含行记录的全部数据。叶子节点除了包含键值，还包含了指向该辅助索引相对应的行数据的主键索引的指针。这样，当通过辅助索引寻找数据时，InnoDB引擎会遍历辅助索引并通过该指针获得一个完整的行记录。每张表上可以有多个辅助索引。
 
-索引优化原则
+
+
+## 索引优化原则
+
 1. 索引覆盖 全值匹配
 2. 最左匹配原则
 3. 在索引列上做任何计算，或者使用函数、类型转换操作，都会导致索引失效而转向全表扫描。
@@ -361,18 +374,46 @@ MySQL的二进制日志（binary log）是一个二进制文件，主要用于�
 
 binlog有三种格式：Statement、Row以及Mixed。
 
-- 基于SQL语句的复制(statement-based replication,SBR)，
-- 基于行的复制(row-based replication,RBR)， 
-- 混合模式复制(mixed-based replication,MBR)。
+- 基于SQL语句的复制(statement-based replication,SBR)：记录sql语句在bin log中。优点是只需要记录会修改数据的sql语句到binlog中，减少了binlog日质量，节约I/O，提高性能。缺点是在某些情况下，会导致主从节点中数据不一致（比如sleep(),now()等）。
+- 基于行的复制(row-based replication,RBR)：将SQL语句分解为基于Row更改的语句并记录在bin log中，也就是只记录哪条数据被修改了，修改成什么样。优点是不会出现某些特定情况下的存储过程、或者函数、或者trigger的调用或者触发无法被正确复制的问题。缺点是会产生大量的日志，尤其是修改table的时候会让日志暴增,
+- 混合模式复制(mixed-based replication,MBR)：对于一般的复制使用STATEMENT模式保存到binlog，对于STATEMENT模式无法复制的操作则使用ROW模式来保存
 
+MYSQL INNDODB的REDO LOG与BINLOG从表面上看来是非常相似的。然而本质上有很大的区别：
+
+第一:REDO LOG是在INNODB存储引擎层产生，而BINLOG是MYSQL数据库的上层产生的，并且二进制日志不仅仅针对INNODB存储引擎，MYSQL数据库中的任何存储引擎对于数据库的更改都会产生二进制日志。
+
+第二：两种日志记录的内容形式不同。MYSQL的BINLOG是逻辑日志，其记录是对应的SQL语句。而INNODB存储引擎层面的重做日志是物理日志。
+
+第三：两种日志与记录写入磁盘的时间点不同，二进制日志只在事务提交完成后进行一次写入。而INNODB存储引擎的重做日志在事务进行中不断地被写入，并日志不是随事务提交的顺序进行写入的。
+
+二进制日志仅在事务提交时记录，并且对于每一个事务，仅在事务提交时记录，并且对于每一个事务，仅包含对应事务的一个日志。而对于INNODB存储引擎的重做日志，由于其记录是物理操作日志，因此每个事务对应多个日志条目，并且事务的重做日志写入是并发的，并非在事务提交时写入，做其在文件中记录的顺序并非是事务开始的顺序。
+
+### 二进制日志与重做日志的区别
+
+二进制文件会记录所有与MySQL数据库相关的日志记录，包括其它各种各样的存储引擎，而重做日志只记录InnoDB相关的；二进制文件记录的是关于一个事务的具体操作内容，即该日志是逻辑日志（记录的是Insert、Update等操作记录），而重做日志记录的是关于每个页的更改的物理情况；二进制文件仅在事务提交前进行提交，即只写磁盘一次，不论这时候事务有多大，而在事务执行过程中，则不断有重做日志条目被写入到重做日志文件中。
 
 
 
 ## MySQL的主从复制
 
+MySQL 主从复制是指数据可以从一个MySQL数据库服务器主节点复制到一个或多个从节点。MySQL 默认采用异步复制方式，这样从节点不用一直访问主服务器来更新自己的数据，数据的更新可以在远程连接上进行，从节点可以复制主数据库中的所有数据库或者特定的数据库，或者特定的表。
+
+### 主从复制主要用途
+**读写分离**
+
+在开发工作中，有时候会遇见某个sql 语句需要锁表，导致暂时不能使用读的服务，这样就会影响现有业务，使用主从复制，让主库负责写，从库负责读，这样，即使主库出现了锁表的情景，通过读从库也可以保证业务的正常运作。
+
+**数据实时备份，当系统中某个节点发生故障时，可以方便的故障切换**
+
+**高可用HA**
+
+**架构扩展**
+
+随着系统中业务访问量的增大，如果是单机部署数据库，就会导致I/O访问频率过高。有了主从复制，增加多个数据存储节点，将负载分布在多个从节点上，降低单机磁盘I/O访问的频率，提高单个机器的I/O性能。
+
 1.  Master将变更记录到二进制日志(binary log)中。
-2.  Slave读取Master中的二进制日志，并将二进制日志拷贝到自己的中继日志中。
-3.  Slave从中继日志读取事件，并重放其中的事件而更新slave的数据
+2.  从库发起连接，连接到主库，主节点会创建一个log dump 线程，用于发送bin-log的内容。在读取bin-log中的操作时，此线程会对主节点上的bin-log加锁，当读取完成，甚至在发动给从节点之前，锁会被释放。
+3.  从库生成两个线程，一个I/O线程，一个SQL线程；I/O线程用来接收主库的binlog，并将得到的binlog日志写到relay log（中继日志） 文件中；SQL 线程，会读取relay log文件中的日志，并解析成具体操作，来实现主从的操作一致，而最终数据一致；
 
 
 
@@ -386,3 +427,270 @@ MySQL读写分离能提高系统性能的原因在于：
 - master直接写是并发的，slave通过主库发送来的binlog恢复数据是异步。
 - slave可以单独设置一些参数来提升其读的性能。
 - 增加冗余，提高可用性。
+
+## SQL基础关键字
+
+###  DISTINCT 关键字
+
+有时候，数据表中可能会有重复的记录。**DISTINCT** 关键字同 SELECT 语句一起使用，可以去除所有重复记录，只返回唯一项。
+
+**DISTINCT** 关键字也可以同SUM、COUNT等分组函数一起使用，先去除重复值后再使用分组函数计算。
+
+
+
+## SQL中的函数
+
+### COUNT
+
+1. COUNT(column_name) 函数返回指定列的值的数目（**NULL 不计入**）：
+
+```sql
+SELECT COUNT(column_name) FROM table_name
+```
+
+2. COUNT(*) 函数返回表中的记录数：
+
+```sql
+SELECT COUNT(*) FROM table_name
+```
+
+
+
+## GROUP BY 子句
+
+GROUP BY 子句用于根据 BY 指定的规则对数据进行分组，所谓的分组就是将一个“数据集”划分成若干个“小区域”，然后针对若干个“小区域”进行数据处理。
+
+GROUP BY 子句必须在 WHERE 子句的条件之后，ORDER BY 子句之前。
+
+GROUP BY 子句可以包含多个分组条件，使用逗号分隔。
+
+**Group By中Select指定的字段限制：**在select指定的字段要么就要包含在Group By语句的后面，作为分组的依据；要么就要被包含在聚合函数中。
+
+
+
+分组筛选 HAVING子句 分组后筛选
+
+
+
+
+
+
+
+## SQL中的连接查询
+
+### 基本语法
+
+```sql
+SELECT
+	查询列表 
+FROM
+	表 1
+	连接类型 JOIN 表 2 ON 连接条件 
+	连接类型 JOIN 表 3 ON 连接条件 
+WHERE
+	筛选条件
+```
+
+### 查询语句的逻辑执行顺序
+
+```sql
+sql执行顺序 
+(1) from 
+(3) join 
+(2) on 
+(4) where 
+(5) group by(开始使用select中的别名，后面的语句中都可以使用)
+(6) AVG(),SUM()···
+(7) having 
+(8) select 
+(9) distinct 
+
+(10) order by
+(11) limit 
+```
+
+### 内连接
+
+
+
+
+
+#### 等值连接
+
+#### 非等值连接
+
+#### 自连接
+
+
+
+### 外连接
+
+左外连接
+
+
+
+右外连接
+
+
+
+全外连接
+
+
+
+## 子查询
+
+
+
+
+
+## 常见题目
+
+1. 查询没学过“叶平”老师课的同学的学号、姓名；
+
+```sql
+# 1. 李老师教过的所有课程的课程号
+SELECT cid FROM course INNER JOIN teacher on course.tid = teacher.tid  WHERE teacher.tname like '李%'
+# 2. 选了李老师教过的所有课程的学生id
+SELECT sid FROM sc INNER JOIN course on sc.cid = course.cid INNER JOIN teacher on course.tid = teacher.tid  WHERE teacher.tname like '李%'
+# 3. 查询没学过“叶平”老师课的同学的学号、姓名；
+select student.* from student where sid not in(
+SELECT sid FROM sc INNER JOIN course on sc.cid = course.cid INNER JOIN teacher on course.tid = teacher.tid  WHERE teacher.tname like '李%')
+```
+
+2. 查询既学过“001”并且也学过编号“002”课程的同学的学号、姓名；
+```sql
+# 法一：
+SELECT
+	student.* 
+FROM
+	student
+	INNER JOIN sc ON student.sid = sc.sid 
+WHERE
+	sc.cid = 1 
+	AND sc.sid IN ( SELECT sid FROM sc WHERE sc.cid = 2 )
+#方法二：
+SELECT
+	s1.* 
+FROM
+	( SELECT student.* FROM student INNER JOIN sc ON student.sid = sc.sid WHERE sc.cid = 1 ) as s1
+	INNER JOIN sc ON sc.sid = s1.sid 
+WHERE
+	sc.cid = 2
+```
+
+3. 查询学过“叶平”老师所教的所有课的同学的学号、姓名；
+
+```sql
+#方法一
+SELECT
+   	sid 
+   FROM
+   	sc
+   	INNER JOIN course ON sc.cid = course.cid
+   	JOIN teacher ON course.tid = teacher.tid 
+   WHERE
+   	teacher.tname = '张三' 
+    GROUP BY
+   	sid 
+   HAVING
+   	count( * ) = ( SELECT count( * ) FROM course JOIN teacher ON course.tid = teacher.tid WHERE teacher.tname = '张三' )
+   	
+#方法二：
+```
+
+4. 查询所有课程成绩小于60分的同学的学号、姓名；
+```sql
+SELECT
+	DISTINCT(sid) 
+FROM
+	sc
+WHERE
+	sid NOT IN ( SELECT sid FROM sc GROUP BY sc.sid HAVING max( sc.score ) >= 60 )
+```
+
+5. 查询没有学全所有课的同学的学号、姓名；
+
+   ```sql
+   SELECT
+   	sid 
+   FROM
+   	sc 
+   GROUP BY
+   	sid 
+   HAVING
+   	count( * ) < ( SELECT count( * ) FROM course )
+   ```
+
+6. 查询和“1002”号的同学学习的课程完全相同的其他同学学号和姓名； 
+
+   ```sql
+   SELECT
+   	sid 
+   FROM
+   	sc 
+   WHERE
+   	sc.cid IN ( SELECT cid FROM sc WHERE sc.sid = 1 ) 
+   GROUP BY
+   	sid 
+   HAVING
+   	count( * ) = ( SELECT count( * ) FROM sc WHERE sc.sid = 1 )
+   ```
+
+   
+
+## Mysql中的Limit子句
+
+### 1. Limit的语法
+
+**LIMIT 子句用于强制 SELECT 语句返回指定行数的记录。**
+
+LIMIT 子句接受一个或两个数字参数。
+
+- 如果只给定一个参数，它表示返回的记录行数目。
+- 如果给定两个参数，则第一个参数指定从第几个记录行开始，第二个参数指定返回记录行的数目。初始记录行的偏移量是0。为了检索从某一个偏移量到记录集的结束所有的记录行，可以指定第二个参数为 -1。
+
+```sql
+SELECT * FROM table where age >20 LIMIT 5,10; # where子句查询出数据后，从第5个记录行开始，返回10个记录行
+```
+
+### 2. Limit中offset过大时的优化
+
+
+
+1. 准备测试数据表及数据
+
+  ```sql
+    CREATE TABLE `member` (
+    `id` int(10) unsigned NOT NULL AUTO_INCREMENT,
+    `name` varchar(10) NOT NULL COMMENT '姓名',
+    `gender` tinyint(3) unsigned NOT NULL COMMENT '性别',
+    PRIMARY KEY (`id`),
+    KEY `gender` (`gender`)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
+  ```
+
+2. 出现的问题机原因分析
+    当offset很大时，会出现效率问题，随着offset的增大，执行效率下降。 
+
+  ```sql
+select * from member where gender=1 limit 300000,1;
+  ```
+
+根据InnoDB索引的结构，查询过程为：
+
+- 通过二级索引查到主键值（找出所有gender=1的id)。
+- 再根据查到的主键值通过主键索引找到相应的数据块（根据id找出对应的数据块内容）。
+- 根据offset的值，查询300001次主键索引的数据，最后将之前的300000条丢弃，取出最后1条。
+
+可以看出，问题出现在通过主键索引再去主键索引表中多次IO去找相应的数据块。
+
+因此可以证实，mysql查询时，offset过大影响性能的原因是多次通过主键索引访问数据块的I/O操作。
+
+3. 优化
+如果在找到主键索引后，先执行offset偏移处理，跳过300000条，再通过第300001条记录的主键索引去读取数据块，这样就能提高效率了。
+
+**因此我们先查出偏移后的主键，再根据主键索引查询数据块的所有内容即可优化。**
+
+```sql
+select a.* from member as a inner join (select id from member where gender=1 limit 300000,1) as b on a.id=b.id;
+```

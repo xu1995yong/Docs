@@ -1,6 +1,6 @@
 ## SpringAOP基础概念
 
-AOP 即 **面向切面编程**, 它与 `OOP`( `Object-Oriented Programming`, 面向对象编程) 相辅相成,，提供了与 `OOP` 不同的抽象软件结构的视角。在 `OOP` 中,我们以类(class)作为我们的基本单元, 而 `AOP` 中的基本单元是 **Aspect(切面)**。
+AOP 即 **面向切面编程**,，通过[预编译](https://baike.baidu.com/item/预编译/3191547)方式和运行期实现在不修改[源代码](https://baike.baidu.com/item/源代码)的情况下动态代理实现程序功能的统一维护的一种技术。它与 `OOP`( `Object-Oriented Programming`, 面向对象编程) 相辅相成,，提供了与 `OOP` 不同的抽象软件结构的视角。在 `OOP` 中,我们以类(class)作为我们的基本单元, 而 `AOP` 中的基本单元是 **Aspect(切面)**。
 
 
 
