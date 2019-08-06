@@ -167,11 +167,20 @@ Redis 通过 [PUBLISH](http://redis.readthedocs.org/en/latest/pub_sub/publish.ht
 
 ## Redis事务的实现
 
-Redis 通过 [MULTI](http://redis.readthedocs.org/en/latest/transaction/multi.html#multi) 、 [DISCARD](http://redis.readthedocs.org/en/latest/transaction/discard.html#discard) 、 [EXEC](http://redis.readthedocs.org/en/latest/transaction/exec.html#exec) 和 [WATCH](http://redis.readthedocs.org/en/latest/transaction/watch.html#watch) 四个命令来实现事务功能。
+Redis 通过 MULTI 、 DISCARD、 EXEC 和 WATCH 四个命令来实现事务功能。
 
-[MULTI](http://redis.readthedocs.org/en/latest/transaction/multi.html#multi) 命令开始一个事务，事务开启后，服务器会将收到的来自客户端的命令放进事务队列中，最后由 [EXEC](http://redis.readthedocs.org/en/latest/transaction/exec.html#exec) 命令一并执行事务队列中的所有命令。
+- MULTI命令开始一个事务，即将客户端的 `REDIS_MULTI` 选项打开， 让客户端从非事务状态切换到事务状态。
+- 客户端进入事务状态之后， 服务器在收到来自客户端的命令时， 不会立即执行命令， 而是将这些命令全部放进一个事务队列里， 然后返回 `QUEUED` ， 表示命令已入队。
+- 但其实并不是所有的命令都会被放进事务队列， 其中的例外就是 [EXEC](http://redis.readthedocs.org/en/latest/transaction/exec.html#exec) 、 [DISCARD](http://redis.readthedocs.org/en/latest/transaction/discard.html#discard) 、 [MULTI](http://redis.readthedocs.org/en/latest/transaction/multi.html#multi) 和 [WATCH](http://redis.readthedocs.org/en/latest/transaction/watch.html#watch) 这四个命令 —— 当这四个命令从客户端发送到服务器时， 它们会像客户端处于非事务状态一样， 直接被服务器执行。
+- 如果客户端正处于事务状态， 那么当 EXEC 命令执行时， 服务器根据客户端所保存的事务队列， 以先进先出（FIFO）的方式执行事务队列中的命令： 最先入队的命令最先执行， 而最后入队的命令最后执行。
+- 执行事务中的命令所得的结果会以 FIFO 的顺序保存到一个回复队列中。
+- 当事务队列里的所有命令被执行完之后， EXEC 命令会将回复队列作为自己的执行结果返回给客户端， 客户端从事务状态返回到非事务状态， 至此， 事务执行完毕。
 
-[WATCH](http://redis.readthedocs.org/en/latest/transaction/watch.html#watch) 命令用于在事务开始之前监视任意数量的键，当调用 [EXEC](http://redis.readthedocs.org/en/latest/transaction/exec.html#exec) 命令执行事务时， 如果任意一个被监视的键已经被其他客户端修改， 那整个事务不再执行， 直接返回失败。
+DISCARD 命令用于取消一个事务， 它清空客户端的整个事务队列， 然后将客户端从事务状态调整回非事务状态， 最后返回字符串 `OK` 给客户端， 说明事务已被取消。
+
+Redis 的事务是不可嵌套的， 当客户端已经处于事务状态， 而客户端又再向服务器发送 MULTI 时， 服务器只是简单地向客户端发送一个错误， 然后继续等待其他命令的入队。 MULTI 命令的发送不会造成整个事务失败， 也不会修改事务队列中已有的数据。
+
+WATCH 命令用于在事务开始之前监视任意数量的键，当调用 EXEC 命令执行事务时， 如果任意一个被监视的键已经被其他客户端修改， 那整个事务不再执行， 直接返回失败。WATCH 只能在客户端进入事务状态之前执行， 在事务状态下发送 WATCH 命令会引发一个错误， 但它不会造成整个事务失败， 也不会修改事务队列中已有的数据（和前面处理 MULTI 的情况一样）
 
 
 
@@ -220,7 +229,24 @@ AOF文件中的所有命令都以Redis命令请求协议的格式保存。在保
 7. 同步完成之后，主从服务器进入命令传播阶段，这时主服务器一直将自己执行的写命令发送给从服务器，从服务器接收并执行主服务器发送的写命令。
 
 
+### 全量复制
+①slave发送psync，由于是第一次复制，不知道master的runid，自然也不知道offset，所以发送psync ？ -1
 
+②master收到请求，发送master的runid和offset给从节点。
+
+③从节点slave保存master的信息
+
+④主节点bgsave保存rdb文件
+
+⑤主机点发送rdb文件
+
+并且在④和⑤的这个过程中产生的数据，会写到复制缓冲区repl_back_buffer之中去。
+
+⑥主节点发送上面两个步骤产生的buffer到从节点slave
+
+⑦从节点清空原来的数据，如果它之前有数据，那么久会清空数据
+
+⑧从节点slave把rdb文件的数据装载进自身。
 
 
 

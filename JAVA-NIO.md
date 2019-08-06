@@ -1,3 +1,80 @@
+## IO模型简介
+
+### BIO
+
+采用同步阻塞IO会导致每个TCP连接都占用1个线程，这样当IO读写阻塞导致线程无法及时释放时，会导致线程过多系统性能急剧下降，严重的甚至会导致虚拟机无法创建新的线程。
+
+### NIO
+
+IO多路复用技术通过把多个IO的阻塞复用到同一个select的阻塞上，从而使得系统在单线程的情况下可以同时处理多个客户端请求。与传统的多线程/多进程模型比，I/O多路复用的最大优势是系统开销小，系统不需要创建新的额外进程或者线程，也不需要维护这些进程和线程的运行，降低了系统的维护工作量，节省了系统资源。
+
+#### Linux中的多路复用
+
+##### select模型
+
+```c
+//fd_set是一long类型的数组，用于存放需要检测其状态的socket描述符。调用select()函数之后，select() 函数需要清空它所检测的socket描述符集合，导致每次调用select()之前都必须把socket描述符重新加入到待检测的集合中
+int select (int n, fd_set *readfds, fd_set *writefds, fd_set *exceptfds, struct timeval *timeout);
+```
+
+调用select函数会导致阻塞，直到有socket描述符就绪或者超时函数才返回。select返回后需要再遍历fdset，来找到就绪的描述符。且select函数单个进程能够监视的文件描述符的数量存在最大限制，在Linux上一般为1024。
+
+##### poll模型
+
+```c
+//struct pollfd * fds：是一个struct pollfd结构类型的数组，用于存放需要检测其状态的socket描述符；每当调用这个函数之后，系统不需要清空这个数组，操作起来比较方便；
+int poll (struct pollfd *fds, unsigned int nfds, int timeout);
+```
+
+poll函数没有最大连接数的限制，但是poll返回后，需要轮询pollfd来获取就绪的描述符。因此随着监视的描述符数量的增长，其效率也会线性下降。
+
+##### epoll模型
+
+```c
+//创建epoll对象并回传其描述符。
+int epoll_create(int size)；
+//将需要交由内核管控的文件描述符加入epoll对象并设置触发条件。epoll_event：表示告诉内核需要监听什么事
+int epoll_ctl(int epfd, int op, int fd, struct epoll_event *event)；
+//等待已注册之事件被触发或计时终了
+int epoll_wait(int epfd, struct epoll_event * events, int maxevents, int timeout);
+```
+
+在 select/poll中，进程只有在调用一定的方法后，内核才对所有监视的文件描述符进行扫描，而epoll事先通过epoll_ctl()来注册一 个文件描述符，一旦基于某个文件描述符就绪时，内核会采用类似callback的回调机制，迅速激活这个文件描述符，当进程调用epoll_wait() 时便得到通知。
+
+epoll的优点：epoll监视的描述符数量不受限制，它所支持的FD上限是最大可以打开文件的数目。IO的效率不会随着监视fd的数量的增长而下降。epoll不同于select和poll轮询的方式，而是通过每个fd定义的回调函数来实现的。只有就绪的fd才会执行回调函数。
+
+
+
+![img](http://km.oa.com/files/photos/pictures/201905/1559217753_47_w720_h335.jpg)
+
+#### Reactor模式
+
+Reactor模式是基于NIO中实现多路复用的一种模式。Reactor实现了一个被动的事件分离和分发模型，服务等待请求事件的到来，再通过不受间断的同步处理事件，从而做出反应。
+
+##### Reactor单线程模型
+
+Reactor单线程模型，指的是将IO的阻塞复用到同一个select的阻塞上，所有的IO操作都在同一个NIO线程上面完成。包括：接收客户端的TCP连接、向服务端发起TCP连接、读取通信对端的请求或者应答消息、向通信对端发送消息请求或者应答消息。
+
+Reactor单线程模型的缺陷：
+
+1. 一个NIO线程同时处理成百上千的链路，性能上无法支撑，且单线程无法利用多核CPU的优势。
+2. 一旦NIO线程意外跑飞，或者进入死循环，会导致整个系统通信模块不可用，造成节点故障。
+
+为了解决这些问题，演进出了Reactor多线程模型。
+
+##### Reactor多线程模型
+
+Reactor多线程模型的特点：
+
+1. 采用一个专门的NIO线程-Acceptor线程用于监听客户端的TCP连接请求。
+2. 网络IO操作的读写等由一个NIO线程池负责。
+
+在绝大多数场景下，Reactor多线程模型都可以满足性能需求；但是，在极特殊应用场景中，一个单独的Acceptor可能会存在性能问题。例如百万客户端并发连接，或者服务端需要对客户端的握手消息进行安全认证，认证本身非常损耗性能。为了解决性能问题，产生了第三种Reactor线程模型-主从Reactor多线程模型。
+
+##### 主从Reactor多线程模型
+
+主从Reactor线程模型的特点：采用一个独立的Acceptor线程池监听客户端的TCP连接请求，而不再是个一个单独的NIO线程。
+
 ## Linux中的I/O模型
 
 两个阻塞过程
