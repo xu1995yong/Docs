@@ -430,6 +430,10 @@ MySQL读写分离能提高系统性能的原因在于：
 - 
 
 <<<<<<< HEAD
+<<<<<<< HEAD
+=======
+=======
+>>>>>>> 修改冲突
 ## SQL基础关键字
 
 ###  DISTINCT 关键字
@@ -640,8 +644,12 @@ WHERE
 
    
 
+<<<<<<< HEAD
 =======
 >>>>>>> oom & limit
+=======
+>>>>>>> 修改冲突
+>>>>>>> 修改冲突
 ## Mysql中的Limit子句
 
 ### 1. Limit的语法
@@ -664,10 +672,17 @@ SELECT * FROM table where age >20 LIMIT 5,10; # where子句查询出数据后，
 1. 准备测试数据表及数据
 
 <<<<<<< HEAD
+<<<<<<< HEAD
   ```sql
 =======
 ```sql
 >>>>>>> oom & limit
+=======
+```sql
+=======
+  ```sql
+>>>>>>> 修改冲突
+>>>>>>> 修改冲突
     CREATE TABLE `member` (
     `id` int(10) unsigned NOT NULL AUTO_INCREMENT,
     `name` varchar(10) NOT NULL COMMENT '姓名',
@@ -676,6 +691,7 @@ SELECT * FROM table where age >20 LIMIT 5,10; # where子句查询出数据后，
     KEY `gender` (`gender`)
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
 
+<<<<<<< HEAD
   ```
 
 2. 出现的问题机原因分析
@@ -685,6 +701,8 @@ SELECT * FROM table where age >20 LIMIT 5,10; # where子句查询出数据后，
 select * from member where gender=1 limit 300000,1;
   ```
 =======
+=======
+>>>>>>> 修改冲突
 ```
 
 2. 出现的问题机原因分析
@@ -693,6 +711,10 @@ select * from member where gender=1 limit 300000,1;
 ```sql
 select * from member where gender=1 limit 300000,1;
 ```
+
+=======
+=======
+  ```
 
 
 2. 出现的问题机原因分析
@@ -714,14 +736,22 @@ select * from member where gender=1 limit 300000,1;
 
 3. 优化
 
+<<<<<<< HEAD
 如果在找到主键索引后，先执行offset偏移处理，跳过300000条，再通过第300001条记录的主键索引去读取数据块，这样就能提高效率了。
 =======
    如果在找到主键索引后，先执行offset偏移处理，跳过300000条，再通过第300001条记录的主键索引去读取数据块，这样就能提高效率了。
 >>>>>>> oom & limit
+=======
+   如果在找到主键索引后，先执行offset偏移处理，跳过300000条，再通过第300001条记录的主键索引去读取数据块，这样就能提高效率了。
+=======
+如果在找到主键索引后，先执行offset偏移处理，跳过300000条，再通过第300001条记录的主键索引去读取数据块，这样就能提高效率了。
+>>>>>>> 修改冲突
+>>>>>>> 修改冲突
 
 
 **因此我们先查出偏移后的主键，再根据主键索引查询数据块的所有内容即可优化。**
 
 ```sql
 select a.* from member as a inner join (select id from member where gender=1 limit 300000,1) as b on a.id=b.id;
+<<<<<<< HEAD
 ```
