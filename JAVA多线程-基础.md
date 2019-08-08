@@ -88,6 +88,8 @@ public class MyThread implements Runnable {
 
 若线程在处于wait、join、sleep状态时被中断，该线程会抛出**InterruptedException异常**，并清除当前线程的中断状态。        
 
+遇到处于运行期且非阻塞的状态的线程，直接调用`Thread.interrupt()`中断线程是不会得到任响应的，即不会抛出InterruptedException异常。
+
 
 
 ## Thread类解析
