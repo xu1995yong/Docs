@@ -4,7 +4,7 @@
 
 Netty是一个高性能、异步事件驱动的NIO框架，它提供了对TCP、UDP和文件传输的支持，作为一个异步NIO框架，Netty的所有IO操作都是异步非阻塞的，通过Future-Listener机制，用户可以方便的主动获取或者通过通知机制获得IO操作结果。
 
-<<<<<<< HEAD
+ 
 不选择JAVA原生NIO和IO的原因
 基于IO的经典同步堵塞模型：
 经典的IO模型也就是传统的服务器端同步阻塞I/O处理（也就是BIO，Blocking I/O）的经典编程模型，当我们每得到一个新的连接时，就会开启一个线程来处理这个连接的任务。之所以使用多线程，主要原因在于socket.accept()、socket.read()、socket.write()三个主要函数都是同步阻塞的，当一个连接在处理I/O的时候，系统是阻塞的，如果是单线程的话必然就挂死在那里；但CPU是被释放出来的，开启多线程，就可以让CPU去处理更多的事情。
@@ -38,15 +38,7 @@ API使用简单，开发门槛低。
 稳定，修复了NIO出现的所有Bug。
 切换IO和NIO，因为IO和NIO的API完全不同，相互切换非常困难。
 
-<<<<<<< HEAD
-<<<<<<< HEAD
-<<<<<<< HEAD
-<<<<<<< HEAD
-=======
->>>>>>> 添加文件
-=======
-=======
->>>>>>> 修改冲突
+ 
 ## Netty中的组件介绍
 
 - **Bootstrap**：netty的辅助启动器，netty客户端和服务器的入口，Bootstrap是创建客户端连接的启动器，ServerBootstrap是监听服务端端口的启动器。
@@ -56,16 +48,7 @@ API使用简单，开发门槛低。
 - **ChannelPipeline**：netty最核心的几大组件之一，ChannelHandler的容器，netty处理io操作的通道，与ChannelHandler组成责任链。write、read、connect等所有的io操作都会通过这个ChannelPipeline，依次通过ChannelPipeline上面的ChannelHandler处理，这就是netty事件模型的核心。ChannelPipeline内部有两个节点，head和tail，分别对应着ChannelHandler链的头和尾。
 - **Unsafe**：顾名思义这个类就是不安全的意思，但并不是说这个类本身不安全，而是不要在应用程序里面直接使用Unsafe以及他的衍生类对象，实际上Unsafe操作都是在reactor线程中被执行。Unsafe是Channel的内部类，并且是protected修饰的，所以在类的设计上已经保证了不被用户代码调用。Unsafe的操作都是和jdk底层相关。EventLoop轮询到read或accept事件时，会调用unsafe.read()，unsafe再调用ChannelPipeline去处理事件；当发生write事件时，所有写事件都会放在EventLoop的task中，然后从ChannelPipeline的tail传播到head，通过Unsafe写到网络中。
 
-<<<<<<< HEAD
-=======
->>>>>>> add Netty
-=======
->>>>>>> add Netty
-=======
->>>>>>> 修改冲突
->>>>>>> 修改冲突
-=======
->>>>>>> 添加文件
+ 
 
 
 Nettty 有如下几个核心组件：
@@ -75,11 +58,7 @@ Nettty 有如下几个核心组件：
 - EventLoop
 - ChannelHandler
 - ChannelPipeline
-
-
-
-=======
->>>>>>> add
+ 
 
 
 ## Netty中的NioEventLoopGroup
