@@ -491,6 +491,65 @@ SELECT
 FROM
 	表 1
 	连接类型 JOIN 表 2 ON 连接条件 
+- 增加冗余，提高可用性。
+
+## Mysql中的Limit子句
+
+### 1. Limit的语法
+
+**LIMIT 子句用于强制 SELECT 语句返回指定行数的记录。**
+
+LIMIT 子句接受一个或两个数字参数。
+
+- 如果只给定一个参数，它表示返回的记录行数目。
+- 如果给定两个参数，则第一个参数指定从第几个记录行开始，第二个参数指定返回记录行的数目。初始记录行的偏移量是0。为了检索从某一个偏移量到记录集的结束所有的记录行，可以指定第二个参数为 -1。
+
+```sql
+SELECT * FROM table where age >20 LIMIT 5,10; # where子句查询出数据后，从第5个记录行开始，返回10个记录行
+```
+
+### 2. Limit中offset过大时的优化
+
+
+
+1. 准备测试数据表及数据
+
+```sql
+    CREATE TABLE `member` (
+    `id` int(10) unsigned NOT NULL AUTO_INCREMENT,
+    `name` varchar(10) NOT NULL COMMENT '姓名',
+    `gender` tinyint(3) unsigned NOT NULL COMMENT '性别',
+    PRIMARY KEY (`id`),
+    KEY `gender` (`gender`)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
+```
+
+2. 出现的问题机原因分析
+   当offset很大时，会出现效率问题，随着offset的增大，执行效率下降。 
+
+```sql
+select * from member where gender=1 limit 300000,1;
+```
+
+根据InnoDB索引的结构，查询过程为：
+
+- 通过二级索引查到主键值（找出所有gender=1的id)。
+- 再根据查到的主键值通过主键索引找到相应的数据块（根据id找出对应的数据块内容）。
+- 根据offset的值，查询300001次主键索引的数据，最后将之前的300000条丢弃，取出最后1条。
+
+可以看出，问题出现在通过主键索引再去主键索引表中多次IO去找相应的数据块。
+
+因此可以证实，mysql查询时，offset过大影响性能的原因是多次通过主键索引访问数据块的I/O操作。
+
+3. 优化
+   如果在找到主键索引后，先执行offset偏移处理，跳过300000条，再通过第300001条记录的主键索引去读取数据块，这样就能提高效率了。
+
+**因此我们先查出偏移后的主键，再根据主键索引查询数据块的所有内容即可优化。**
+
+```sql
+select a.* from member as a inner join (select id from member where gender=1 limit 300000,1) as b on a.id=b.id;
+```
+
 	连接类型 JOIN 表 3 ON 连接条件 
 WHERE
 	筛选条件
