@@ -44,7 +44,7 @@ OOM，全称“Out Of Memory”，当JVM因为没有足够的内存来为对象�
 
 - java.lang.OutOfMemoryError: Java heap space：java堆内存溢出，此种情况最常见，一般由于内存泄露或者堆的大小设置不当引起。对于内存泄露，需要通过内存监控软件查找程序中的泄露代码，而堆大小可以通过虚拟机参数-Xms,-Xmx等修改。
 - java.lang.OutOfMemoryError: PermGen space：java永久代溢出，即方法区溢出了，一般出现于大量Class或者jsp页面，或者采用cglib等反射机制的情况，因为上述情况会产生大量的Class信息存储于方法区。此种情况可以通过更改方法区的大小来解决，使用类似-XX:PermSize=64m -XX:MaxPermSize=256m的形式修改。另外，过多的常量尤其是字符串也会导致方法区溢出。
-- java.lang.StackOverflowError： 不会抛OOM Error，但也是比较常见的Java内存溢出。JAVA虚拟机栈溢出，一般是由于程序中存在死循环或者深度递归调用造成的，栈大小设置太小也会出现此种溢出。可以通过虚拟机参数-Xss来设置栈的大小。
+- java.lang.StackOverflowError：不会抛OOM Error，但也是比较常见的Java内存溢出。JAVA虚拟机栈溢出，一般是由于程序中存在死循环或者深度递归调用造成的，栈大小设置太小也会出现此种溢出。可以通过虚拟机参数-Xss来设置栈的大小。
 
 ### OOM出现原因分析
 
@@ -63,3 +63,22 @@ OOM，全称“Out Of Memory”，当JVM因为没有足够的内存来为对象�
 6. 对dump出的文件进行分析，从而找到OOM的原因。常用的工具有：
    - mat: eclipse memory analyzer, 基于eclipse RCP的内存分析工具。详细信息参见：http://www.eclipse.org/mat/，推荐使用。   
    - jhat：JDK自带的java heap analyze tool，可以将堆中的对象以html的形式显示出来，包括对象的数量，大小等等，并支持对象查询语言OQL，分析相关的应用后，可以通过http://localhost:7000来访问分析结果。不推荐使用，因为在实际的排查过程中，一般是先在生产环境 dump出文件来，然后拉到自己的开发机器上分析，所以，不如采用高级的分析工具比如前面的mat来的高效。
+
+## 使用CMS垃圾收集器产生的问题和解决方案
+
+### promotion failed
+
+promotion failed是在进行Minor GC时，Survivor Space放不下，对象只能放入老年代，然而，有些时候尽管老年带有足够的空间，但是由于CMS采用标记清除算法，默认并不使用标记整理算法，可能会产生很多碎片，因此，这些碎片无法完成大对象向老年带转移，因此需要进行CMS在老年代的Full GC来合并碎片。
+
+这个问题的直接影响就是它会导致提前进行CMS Full GC, 尽管这个时候CMS的老年带并没有填满，只不过有过多的碎片而已，但是Full GC导致的stop-the-wold是难以接受的。
+
+解决这个问题的办法就是可以让CMS在进行一定次数的Full GC（标记清除）的时候进行一次标记整理算法，CMS提供了以下参数来控制：
+
+```
+-XX:UseCMSCompactAtFullCollection -XX:CMSFullGCBeforeCompaction=5
+```
+
+也就是CMS在进行5次Full GC（标记清除）之后进行一次标记整理算法，从而可以控制老年带的碎片在一定的数量以内，甚至可以配置CMS在每次Full GC的时候都进行内存的整理。
+
+
+
