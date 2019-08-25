@@ -129,6 +129,35 @@ Redis支持五种数据类型：string（字符串），hash表（哈希），li
 
 
 
+## Redis对象底层数据结构
+
+底层数据结构共有八种，如下表所示：
+
+| 类型         | 编码                      | 对象                                               |
+| ------------ | ------------------------- | -------------------------------------------------- |
+| REDIS_STRING | REDIS_ENCODING_INT        | 使用整数值实现的字符串对象。                       |
+| REDIS_STRING | REDIS_ENCODING_EMBSTR     | 使用 embstr 编码的简单动态字符串实现的字符串对象。 |
+| REDIS_STRING | REDIS_ENCODING_RAW        | 使用简单动态字符串实现的字符串对象。               |
+| REDIS_LIST   | REDIS_ENCODING_ZIPLIST    | 使用压缩列表实现的列表对象。                       |
+| REDIS_LIST   | REDIS_ENCODING_LINKEDLIST | 使用双端链表实现的列表对象。                       |
+| REDIS_HASH   | REDIS_ENCODING_ZIPLIST    | 使用压缩列表实现的哈希对象。                       |
+| REDIS_HASH   | REDIS_ENCODING_HT         | 使用字典实现的哈希对象。                           |
+| REDIS_SET    | REDIS_ENCODING_INTSET     | 使用整数集合实现的集合对象。                       |
+| REDIS_SET    | REDIS_ENCODING_HT         | 使用字典实现的集合对象。                           |
+| REDIS_ZSET   | REDIS_ENCODING_ZIPLIST    | 使用压缩列表实现的有序集合对象。                   |
+| REDIS_ZSET   | REDIS_ENCODING_SKIPLIST   | 使用跳跃表和字典实现的有序集合对象。               |
+
+
+
+### 压缩列表
+
+压缩列表是由**一系列特殊编码的连续内存块组成的顺序型数据结构**。一个压缩列表可以包含任意多个节点，每个节点可以保存一个字节数组或者一个整数值。
+
+
+
+
+
+
 ## Redis 中的缓存淘汰策略
 
 ### 键的过期时间
