@@ -64,6 +64,28 @@ OOM，全称“Out Of Memory”，当JVM因为没有足够的内存来为对象�
    - mat: eclipse memory analyzer, 基于eclipse RCP的内存分析工具。详细信息参见：http://www.eclipse.org/mat/，推荐使用。   
    - jhat：JDK自带的java heap analyze tool，可以将堆中的对象以html的形式显示出来，包括对象的数量，大小等等，并支持对象查询语言OQL，分析相关的应用后，可以通过http://localhost:7000来访问分析结果。不推荐使用，因为在实际的排查过程中，一般是先在生产环境 dump出文件来，然后拉到自己的开发机器上分析，所以，不如采用高级的分析工具比如前面的mat来的高效。
 
+## JDK死锁
+
+### 什么是死锁
+
+死锁是指两个或两个以上的进程在执行过程中，由于竞争资源或者由于彼此通信而造成的一种阻塞的现象，若无外力作用，它们都将无法推进下去。此时称系统处于死锁状态或系统产生了死锁，这些永远在互相等待的进程称为死锁进程。
+
+### 死锁排查
+
+top
+
+jstack -l 进程号
+
+## 查看jvm堆内存信息
+
+jmap -heap PID 
+
+
+
+jmap -histo PID //**查看java堆中对象的相关信息，包含数量以及占用的空间大小**
+
+
+
 ## 使用CMS垃圾收集器产生的问题和解决方案
 
 ### promotion failed
