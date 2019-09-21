@@ -4,6 +4,60 @@
 
 Netty是一个高性能、异步事件驱动的NIO框架，它提供了对TCP、UDP和文件传输的支持，作为一个异步NIO框架，Netty的所有IO操作都是异步非阻塞的，通过Future-Listener机制，用户可以方便的主动获取或者通过通知机制获得IO操作结果。
 
+ 
+不选择JAVA原生NIO和IO的原因
+基于IO的经典同步堵塞模型：
+经典的IO模型也就是传统的服务器端同步阻塞I/O处理（也就是BIO，Blocking I/O）的经典编程模型，当我们每得到一个新的连接时，就会开启一个线程来处理这个连接的任务。之所以使用多线程，主要原因在于socket.accept()、socket.read()、socket.write()三个主要函数都是同步阻塞的，当一个连接在处理I/O的时候，系统是阻塞的，如果是单线程的话必然就挂死在那里；但CPU是被释放出来的，开启多线程，就可以让CPU去处理更多的事情。
+
+
+线程的创建和销毁成本很高，在Linux这样的操作系统中，线程本质上就是一个进程。创建和销毁都是重量级的系统函数。 
+线程本身占用较大内存，像Java的线程栈，一般至少分配512K～1M的空间，如果系统中的线程数过千，恐怕整个JVM的内存都会被吃掉一半。
+
+线程的切换成本是很高的。操作系统发生线程切换的时候，需要保留线程的上下文，然后执行系统调用。如果线程数过高，可能执行线程切换的时间甚至会大于线程执行的时间，这时候带来的表现往往是系统load偏高、CPU sy使用率特别高（超过20%以上)，导致系统几乎陷入不可用的状态。
+
+容易造成锯齿状的系统负载。因为系统负载是用活动线程数或CPU核心数，一旦线程数量高但外部网络环境不是很稳定，就很容易造成大量请求的结果同时返回，激活大量阻塞线程从而使系统负载压力过大。
+参考：[Java NIO浅析]http://mp.weixin.qq.com/s/HhwaXd8x7zONr8N1ojSnsQ
+
+基于NIO的异步模型：
+NIO是一种同步非阻塞的I/O模型，也是I/O多路复用的基础，而且已经被越来越多地应用到大型应用服务器，成为解决高并发与大量连接、I/O处理问题的有效方式。[Java NIO介绍（二）————无堵塞io和Selector简单介绍]
+
+不使用NIO的原因：
+
+NIO的类库和API繁杂。需要很多额外的技能做铺垫。例如需要很熟悉Java多线程编程、Selector线程模型。导致工作量和开发难度都非常大。
+扩展 ByteBuffer：NIO和Netty都有ByteBuffer来操作数据，但是NIO的ByteBuffer长度固定而且操作复杂，许多操作甚至都需要自己实现。而且它的构造函数是私有，不能扩展。Netty 提供了自己的 
+ByteBuffer 实现， Netty 通过一些简单的 APIs 对 ByteBuffer 进行构造、使用和操作，以此来解决 NIO 中的一些限制。
+NIO 对缓冲区的聚合和分散操作可能会操作内存泄露，到jdk7才解决了内存泄露的问题
+存在臭名昭著的epoll bug，导致Selector空轮询：这个bug会导致linux上导致cpu 100%：http://www.blogjava.net/killme2008/archive/2009/09/28/296826.html
+为什么选择Netty
+API使用简单，开发门槛低。
+功能强大，预置了多种编解码功能，支持多种协议开发。
+定制能力强，可以通过ChannelHadler进行扩展。
+性能高，对比其它NIO框架，Netty综合性能最优。
+经历了大规模的应用验证。在互联网、大数据、网络游戏、企业应用、电信软件得到成功，很多著名的框架通信底层就用了Netty，比如Dubbo
+稳定，修复了NIO出现的所有Bug。
+切换IO和NIO，因为IO和NIO的API完全不同，相互切换非常困难。
+
+ 
+## Netty中的组件介绍
+
+- **Bootstrap**：netty的辅助启动器，netty客户端和服务器的入口，Bootstrap是创建客户端连接的启动器，ServerBootstrap是监听服务端端口的启动器。
+- **Channel**：关联Jdk原生socket的组件，常用的是NioServerSocketChannel和NioSocketChannel，NioServerSocketChannel负责监听一个tcp端口，有连接进来通过boss reactor创建一个NioSocketChannel将其绑定到worker reactor，然后worker reactor负责这个NioSocketChannel的读写等io事件。
+- **EventLoop**：netty最核心的几大组件之一，就是我们常说的reactor，人为划分为boss reactor和worker reactor。通过EventLoopGroup（Bootstrap启动时会设置EventLoopGroup）生成，最常用的是nio的NioEventLoop，就如同EventLoop的名字，EventLoop内部有一个无限循环，维护了一个selector，处理所有注册到selector上的io操作，在这里实现了一个线程维护多条连接的工作。
+- **ChannelHandler**：netty最核心的几大组件之一，netty处理io事件真正的处理单元，开发者可以创建自己的ChannelHandler来处理自己的逻辑，完全控制事件的处理方式。ChannelHandler和ChannelPipeline组成责任链，使得一组ChannelHandler像一条链一样执行下去。ChannelHandler分为inBound和outBound，分别对应io的read和write的执行链。ChannelHandler用ChannelHandlerContext包裹着，有prev和next节点，可以获取前后ChannelHandler，read时从ChannelPipeline的head执行到tail，write时从tail执行到head，所以head既是read事件的起点也是write事件的终点，ChannelHandler与io交互最紧密。
+- **ChannelPipeline**：netty最核心的几大组件之一，ChannelHandler的容器，netty处理io操作的通道，与ChannelHandler组成责任链。write、read、connect等所有的io操作都会通过这个ChannelPipeline，依次通过ChannelPipeline上面的ChannelHandler处理，这就是netty事件模型的核心。ChannelPipeline内部有两个节点，head和tail，分别对应着ChannelHandler链的头和尾。
+- **Unsafe**：顾名思义这个类就是不安全的意思，但并不是说这个类本身不安全，而是不要在应用程序里面直接使用Unsafe以及他的衍生类对象，实际上Unsafe操作都是在reactor线程中被执行。Unsafe是Channel的内部类，并且是protected修饰的，所以在类的设计上已经保证了不被用户代码调用。Unsafe的操作都是和jdk底层相关。EventLoop轮询到read或accept事件时，会调用unsafe.read()，unsafe再调用ChannelPipeline去处理事件；当发生write事件时，所有写事件都会放在EventLoop的task中，然后从ChannelPipeline的tail传播到head，通过Unsafe写到网络中。
+
+ 
+
+
+Nettty 有如下几个核心组件：
+
+- Channel
+- ChannelFuture
+- EventLoop
+- ChannelHandler
+- ChannelPipeline
+ 
 
 
 ## Netty中的NioEventLoopGroup

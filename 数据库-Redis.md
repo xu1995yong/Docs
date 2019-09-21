@@ -57,6 +57,20 @@
 
 
 
+## 一致性Hash算法
+
+简单来说，一致性哈希将整个哈希值空间组织成一个虚拟的圆环，**如假设某哈希函数H的值空间为0-2^32-1（即哈希值是一个32位无符号整形）**。即可以将圆环分为2^32个节点。
+
+下一步将各个服务器使用该Hash进行一个哈希，比如选择服务器的ip或主机名作为关键字进行哈希，这样每台机器就能确定其在哈希环上的位置。
+
+接下来使用如下算法定位数据访问到相应服务器：将数据key使用相同的函数Hash计算出哈希值，并确定此数据在环上的位置，从此位置沿环顺时针“行走”，第一台遇到的服务器就是其应该定位到的服务器。
+
+
+
+当我们将node进行哈希后，这些值并没有均匀地落在环上，因此，最终会导致，这些节点所管辖的范围并不均匀，最终导致了数据分布的不均匀
+
+
+
 # Redis
 
 Redis 是一个高性能的key-value数据库。
@@ -66,6 +80,31 @@ Redis 有以下三个特点：
 - Redis支持数据的持久化，可以将内存中的数据保存在磁盘中。
 - Redis有丰富的数据类型。
 - Redis支持master-slave模式的数据备份。
+
+## Redis与memcache的比较
+
+1. 数据类型
+
+    - Redis支持的数据类型要丰富得多,Redis不仅仅支持简单的k/v类型的数据，同时还提供String，List,Set,Hash,Sorted Set,pub/sub,Transactions数据结构的存储。其中Set是HashMap实现的，value永远为null而已
+    - memcache支持简单数据类型，需要客户端自己处理复杂对象 
+
+2. 持久性
+
+    - redis支持数据落地持久化存储,可以将内存中的数据保持在磁盘中，重启的时候可以再次加载进行使用。 
+
+3. 分布式存储
+
+    - Redis更偏向于在服务器端构建分布式存储，但没有采用一致性哈希。Redis Cluster是一个实现了分布式且允许单点故障的Redis高级版本，它没有中心节点，具有线性可伸缩的功能。为了保证单点故障下的数据可用性，Redis Cluster引入了Master节点和Slave节点。在Redis Cluster中，每个Master节点都会有对应的两个用于冗余的Slave节点。这样在整个集群中，任意两个节点的宕机都不会导致数据的不可用。当Master节点退出后，集群会自动选择一个Slave节点成为新的Master节点。
+    - Memcached本身并不支持分布式，因此只能在客户端通过像一致性哈希这样的分布式算法来实现Memcached的分布式存储，当客户端向Memcached集群发送数据之前，首先会通过内置的分布式算法计算出该条数据的目标节点，然后数据会直接发送到该节点上存储。但客户端查询数据时，同样要计算出查询数据所在的节点，然后直接向该节点发送查询请求以获取数据。
+
+
+4. Memcache支持多核多线程，Redis单线程操作
+
+
+
+
+
+
 
 ## Redis 基础数据结构
 
@@ -88,9 +127,71 @@ Redis支持五种数据类型：string（字符串），hash表（哈希），li
 
 ![img](https://img-blog.csdn.net/20150530162529554?watermark/2/text/aHR0cDovL2Jsb2cuY3Nkbi5uZXQveWFuZ195dWxlaQ==/font/5a6L5L2T/fontsize/400/fill/I0JBQkFCMA==/dissolve/70/gravity/Center)
 
+
+
+## Redis对象底层数据结构
+
+底层数据结构共有八种，如下表所示：
+
+| 类型         | 编码                      | 对象                                               |
+| ------------ | ------------------------- | -------------------------------------------------- |
+| REDIS_STRING | REDIS_ENCODING_INT        | 使用整数值实现的字符串对象。                       |
+| REDIS_STRING | REDIS_ENCODING_EMBSTR     | 使用 embstr 编码的简单动态字符串实现的字符串对象。 |
+| REDIS_STRING | REDIS_ENCODING_RAW        | 使用简单动态字符串实现的字符串对象。               |
+| REDIS_LIST   | REDIS_ENCODING_ZIPLIST    | 使用压缩列表实现的列表对象。                       |
+| REDIS_LIST   | REDIS_ENCODING_LINKEDLIST | 使用双端链表实现的列表对象。                       |
+| REDIS_HASH   | REDIS_ENCODING_ZIPLIST    | 使用压缩列表实现的哈希对象。                       |
+| REDIS_HASH   | REDIS_ENCODING_HT         | 使用字典实现的哈希对象。                           |
+| REDIS_SET    | REDIS_ENCODING_INTSET     | 使用整数集合实现的集合对象。                       |
+| REDIS_SET    | REDIS_ENCODING_HT         | 使用字典实现的集合对象。                           |
+| REDIS_ZSET   | REDIS_ENCODING_ZIPLIST    | 使用压缩列表实现的有序集合对象。                   |
+| REDIS_ZSET   | REDIS_ENCODING_SKIPLIST   | 使用跳跃表和字典实现的有序集合对象。               |
+
+
+
+### 压缩列表
+
+压缩列表是由**一系列特殊编码的连续内存块组成的顺序型数据结构**。一个压缩列表可以包含任意多个节点，每个节点可以保存一个字节数组或者一个整数值。
+
+
+
+
+
+
+## Redis 中的缓存淘汰策略
+
 ### 键的过期时间
 
 Redis 可以为每个键设置过期时间，当键过期时，会自动删除该键。对于散列表这种容器，只能为整个键设置过期时间（整个散列表），而不能为键里面的单个元素设置过期时间。
+
+如何设置key的过期时间，通过以下的指令：
+
+- EXPIRE 将key的生存时间设置为ttl秒 EXPIRE key ttl
+- PEXPIRE 将key的生成时间设置为ttl毫秒
+- EXPIREAT 将key的过期时间设置为timestamp所代表的的秒数的时间戳
+- PEXPIREAT 将key的过期时间设置为timestamp所代表的的毫秒数的时间戳
+- ttl key  可获得对应的key还有多少时间过期。
+
+### Redis提供的几种淘汰策略
+
+- noeviction：当内存使用达到阈值的时候，所有引起申请内存的命令会报错。是Redis默认的策略。
+- allkeys-lru：在主键空间中，优先移除最近未使用的key。
+- volatile-lru：在设置了过期时间的键空间中，优先移除最近未使用的key。
+- allkeys-random：在主键空间中，随机移除某个key。
+- volatile-random：在设置了过期时间的键空间中，随机移除某个key。
+- volatile-ttl：在设置了过期时间的键空间中，具有更早过期时间的key优先移除。
+
+### 策略适用的场景
+
+- allkeys-lru：如果我们的应用对缓存的访问符合幂律分布（也就是存在相对热点数据），或者我们不太清楚我们应用的缓存访问分布状况，我们可以选择allkeys-lru策略。
+- allkeys-random：如果我们的应用对于缓存key的访问概率相等，则可以使用这个策略。
+- volatile-ttl：这种策略使得我们可以向Redis提示哪些key更适合被eviction。
+
+另外，volatile-lru策略和volatile-random策略适合我们将一个Redis实例既应用于缓存和又应用于持久化存储的时候(存储一段时间)，然而我们也可以通过使用两个Redis实例来达到相同的效果，值得一提的是将key设置过期时间实际上会消耗更多的内存，因此我们建议使用allkeys-lru策略从而更有效率的使用内存。
+
+
+
+
 
 ## Redis的应用
 
@@ -156,11 +257,20 @@ Redis 通过 [PUBLISH](http://redis.readthedocs.org/en/latest/pub_sub/publish.ht
 
 ## Redis事务的实现
 
-Redis 通过 [MULTI](http://redis.readthedocs.org/en/latest/transaction/multi.html#multi) 、 [DISCARD](http://redis.readthedocs.org/en/latest/transaction/discard.html#discard) 、 [EXEC](http://redis.readthedocs.org/en/latest/transaction/exec.html#exec) 和 [WATCH](http://redis.readthedocs.org/en/latest/transaction/watch.html#watch) 四个命令来实现事务功能。
+Redis 通过 MULTI 、 DISCARD、 EXEC 和 WATCH 四个命令来实现事务功能。
 
-[MULTI](http://redis.readthedocs.org/en/latest/transaction/multi.html#multi) 命令开始一个事务，事务开启后，服务器会将收到的来自客户端的命令放进事务队列中，最后由 [EXEC](http://redis.readthedocs.org/en/latest/transaction/exec.html#exec) 命令一并执行事务队列中的所有命令。
+- MULTI命令开始一个事务，即将客户端的 `REDIS_MULTI` 选项打开， 让客户端从非事务状态切换到事务状态。
+- 客户端进入事务状态之后， 服务器在收到来自客户端的命令时， 不会立即执行命令， 而是将这些命令全部放进一个事务队列里， 然后返回 `QUEUED` ， 表示命令已入队。
+- 但其实并不是所有的命令都会被放进事务队列， 其中的例外就是 [EXEC](http://redis.readthedocs.org/en/latest/transaction/exec.html#exec) 、 [DISCARD](http://redis.readthedocs.org/en/latest/transaction/discard.html#discard) 、 [MULTI](http://redis.readthedocs.org/en/latest/transaction/multi.html#multi) 和 [WATCH](http://redis.readthedocs.org/en/latest/transaction/watch.html#watch) 这四个命令 —— 当这四个命令从客户端发送到服务器时， 它们会像客户端处于非事务状态一样， 直接被服务器执行。
+- 如果客户端正处于事务状态， 那么当 EXEC 命令执行时， 服务器根据客户端所保存的事务队列， 以先进先出（FIFO）的方式执行事务队列中的命令： 最先入队的命令最先执行， 而最后入队的命令最后执行。
+- 执行事务中的命令所得的结果会以 FIFO 的顺序保存到一个回复队列中。
+- 当事务队列里的所有命令被执行完之后， EXEC 命令会将回复队列作为自己的执行结果返回给客户端， 客户端从事务状态返回到非事务状态， 至此， 事务执行完毕。
 
-[WATCH](http://redis.readthedocs.org/en/latest/transaction/watch.html#watch) 命令用于在事务开始之前监视任意数量的键，当调用 [EXEC](http://redis.readthedocs.org/en/latest/transaction/exec.html#exec) 命令执行事务时， 如果任意一个被监视的键已经被其他客户端修改， 那整个事务不再执行， 直接返回失败。
+DISCARD 命令用于取消一个事务， 它清空客户端的整个事务队列， 然后将客户端从事务状态调整回非事务状态， 最后返回字符串 `OK` 给客户端， 说明事务已被取消。
+
+Redis 的事务是不可嵌套的， 当客户端已经处于事务状态， 而客户端又再向服务器发送 MULTI 时， 服务器只是简单地向客户端发送一个错误， 然后继续等待其他命令的入队。 MULTI 命令的发送不会造成整个事务失败， 也不会修改事务队列中已有的数据。
+
+WATCH 命令用于在事务开始之前监视任意数量的键，当调用 EXEC 命令执行事务时， 如果任意一个被监视的键已经被其他客户端修改， 那整个事务不再执行， 直接返回失败。WATCH 只能在客户端进入事务状态之前执行， 在事务状态下发送 WATCH 命令会引发一个错误， 但它不会造成整个事务失败， 也不会修改事务队列中已有的数据（和前面处理 MULTI 的情况一样）
 
 
 
@@ -187,21 +297,44 @@ AOF文件中的所有命令都以Redis命令请求协议的格式保存。在保
 
 
 
-## Redis主从复制的实现
+## Redis主从同步原理
 
-从服务器使用 ` SLAVEOF HOST PORT` 命令实现复制一个主服务器的数据。具体步骤为：
+和MySQL主从复制的原因一样，Redis虽然读取写入的速度都特别快，但是也会产生读压力特别大的情况。为了分担读压力，Redis支持主从复制，另外也是为了保证HA。Redis主从复制可以根据是否是全量分为全量同步和增量同步。
 
-1. 从服务器向主服务器发送*`SLAVEOF`*命令。
-2. 从服务器创建连向主服务器的套接字。
-3. 从服务器发送PING命令，验证套接字状态和主服务器的状态。
-4. 身份验证
-5. 从服务器向主服务器发送自己的监听端口号。
-6. 从服务器向主服务器发送`PSYNC`命令，执行更新操作。
-7. 同步完成之后，主从服务器进入命令传播阶段，这时主服务器一直将自己执行的写命令发送给从服务器，从服务器接收并执行主服务器发送的写命令。
+#### 全量同步
+
+Redis全量复制一般发生在Slave初始化阶段，这时Slave需要将Master上的所有数据都复制一份。具体步骤如下： 
+
+1. 从服务器连接主服务器，发送SYNC命令； 
+2. 主服务器接收到SYNC命名后，开始执行BGSAVE命令生成RDB文件并使用缓冲区记录此后执行的所有写命令； 
+3. 主服务器BGSAVE执行完后，向所有从服务器发送快照文件，并在发送期间继续记录被执行的写命令； 
+4. 从服务器收到快照文件后丢弃所有旧数据，载入收到的快照； 
+5. 主服务器快照发送完毕后开始向从服务器发送缓冲区中的写命令； 
+6. 从服务器完成对快照的载入，开始接收命令请求，并执行来自主服务器缓冲区的写命令； 
+
+#### 增量同步
+
+Redis增量复制是指Slave正常工作时主服务器发生的写操作同步到从服务器的过程。 
+增量复制的过程主要是主服务器每执行一个写命令就会向从服务器发送相同的写命令，从服务器接收并执行收到的写命令。
+
+Redis的同步策略是：主从刚刚连接的时候，进行全量同步；全量同步结束后，进行增量同步。当然，如果有需要，slave 在任何时候都可以发起全量同步。redis 策略是，无论如何，首先会尝试进行增量同步，如不成功，要求从机进行全量同步。
 
 
 
+## Redis的哨兵机制
 
+Redis-Sentinel也就是哨兵机制，是Redis官方推荐的高可用性(HA)解决方案，当用Redis做Master-slave的高可用方案时，Redis-sentinel能监控多个master-slave集群，发现master宕机后能进行自动切换。
 
+它的主要功能有以下几点：
 
+- 不时地监控redis是否按照预期良好地运行;
+- 如果发现某个redis节点运行出现状况，能够通知另外一个进程(例如它的客户端);
+- 能够进行自动切换（进行主备切换）。当一个master节点不可用时，能够选举出master的多个slave(如果有超过一个slave的话)中的一个来作为新的master,其它的slave节点会将它所追随的master的地址改为被提升为master的slave的新地址。
+
+Sentinel支持集群
+很显然，只使用单个sentinel进程来监控redis集群是不可靠的，当sentinel进程宕掉后(sentinel本身也有单点问题，single-point-of-failure)整个集群系统将无法按照预期的方式运行。所以有必要将sentinel集群，这样有几个好处：
+即使有一些sentinel进程宕掉了，依然可以进行redis集群的主备切换；
+如果只有一个sentinel进程，如果这个进程运行出错，或者是网络堵塞，那么将无法实现redis集群的主备切换（单点问题）;
+如果有多个sentinel，redis的客户端可以随意地连接任意一个sentinel来获得关于redis集群中的信息。
+Sentinel系统选举领头Sentinel的方法是RAFT算法。
 

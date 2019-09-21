@@ -91,3 +91,47 @@ public class UserStatusTypeHandler implements TypeHandler<UserStatus> {
 </typeHandlers>
 ```
 
+## Mybatis常见面试题
+
+### Mybatis获取自动增长主键
+
+针对自增主键的表，在插入时不需要主键，而是在插入过程自动获取一个自增的主键，可以采用如下两种配置方式：
+
+方式一：
+
+```xml
+<insert id="insertAndGetId" useGeneratedKeys="true" keyProperty="userId" parameterType="com.chenzhou.User">
+    insert into user(userName,password,comment)
+    values(#{userName},#{password},#{comment})
+</insert>
+<!--
+	useGeneratedKeys="true" 表示给主键设置自增长
+	keyProperty="userId"  表示将自增长后的Id赋值给实体类中的userId字段。
+	parameterType="com.chenzhou.mybatis.User" 这个属性指向传递的参数实体类
+	实体类中uerId 要有getter() and setter()方法
+-->
+    
+```
+
+方式二：
+
+```xml
+<!-- 插入一个商品 -->
+<insert id="insertProduct" parameterType="domain.model.ProductBean" >
+    <selectKey resultType="java.lang.Long" order="AFTER" keyProperty="productId">
+        SELECT LAST_INSERT_ID()
+    </selectKey>
+    INSERT INTO t_product(productName,productDesrcible,merchantId)values(#{productName},#{productDesrcible},#{merchantId});
+</insert>
+<!--
+<insert></insert> 中没有resultType属性，但是<selectKey></selectKey> 标签是有的。
+
+order="AFTER" 表示先执行插入语句，之后再执行查询语句。可被设置为 BEFORE 或 AFTER。如果设置为 BEFORE,那么它会首先选择主键,设置 keyProperty 然后执行插入语句。如果设置为 AFTER,那么先执行插入语句,然后是 selectKey 元素。
+
+keyProperty="userId"  表示将自增长后的Id赋值给实体类中的userId字段。
+SELECT LAST_INSERT_ID() 表示MySQL语法中查询出刚刚插入的记录自增长Id.
+实体类中uerId 要有getter() and setter();方法
+
+-->
+```
+
