@@ -29,6 +29,15 @@
 </parent>	
 ```
 
+## Spring Boot与Spring MVC的区别
+
+
+
+
+
+
+
+
 
 ## n. Spring Boot之CommandLineRunner接口和ApplicationRunner接口
 
@@ -68,7 +77,7 @@ public class ApplicationRunnerImpl_1 implements ApplicationRunner {
 
 如果有多个实现类，而你需要他们按一定顺序执行的话，可以在实现类上加上@Order注解。@Order(value=整数值)。SpringBoot会按照@Order中的value值从小到大依次执行。
 
- 
+
 ## 1. SpringBoot的热部署
 
 使用spring-boot-devtools模块可以实现：在程序代码发生改变时，自动进行项目的重新启动和代码的重新部署。
