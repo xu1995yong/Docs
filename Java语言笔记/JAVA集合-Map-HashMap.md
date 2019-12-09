@@ -1,3 +1,5 @@
+*Map*接口没有继承自*Collection*接口，因为*Map*表示的是关联式容器而不是集合。但Java为我们提供了从*Map*转换到*Collection*的方法，可以方便的将*Map*切换到集合视图。
+
 ## HashSet and HashMap
 
 ### 总体介绍
