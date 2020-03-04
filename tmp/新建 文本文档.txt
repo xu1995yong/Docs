@@ -1,0 +1,71 @@
+https://www.cnblogs.com/gotodsp/p/6366163.html | HTTP长连接、短连接究竟是什么？ - dai.sp - 博客园
+
+https://www.google.com/search?q=%E8%AE%A1%E7%AE%97%E6%9C%BA%E7%BD%91%E7%BB%9C+%E5%B8%B8%E8%A7%81+%E9%9D%A2%E8%AF%95%E9%A2%98&oq=%E8%AE%A1%E7%AE%97%E6%9C%BA%E7%BD%91%E7%BB%9C+%E5%B8%B8%E8%A7%81+%E9%9D%A2%E8%AF%95%E9%A2%98&aqs=chrome..69i57j0.5319j0j7&sourceid=chrome&ie=UTF-8 | 计算机网络 常见 面试题 - Google 搜索
+https://juejin.im/post/5b7be0b2e51d4538db34a51e | 搞定计算机网络面试，看这篇就够了（补充版） - 掘金
+https://zhuanlan.zhihu.com/p/24001696 | 常见面试题整理--计算机网络篇（每位开发者必备） - 知乎
+https://www.google.com/search?newwindow=1&safe=strict&ei=SWnGXNL4Io7W0gTn-qzYDg&q=tcp+%E9%9D%A2%E5%90%91%E6%B5%81++%E7%9A%84+%E7%90%86%E8%A7%A3&oq=tcp+%E9%9D%A2%E5%90%91%E6%B5%81++%E7%9A%84+%E7%90%86%E8%A7%A3&gs_l=psy-ab.12...0.0..403...0.0..0.0.0.......0......gws-wiz.x9loiJGJyMw | tcp 面向流 的 理解 - Google 搜索
+http://blog.huangyuanlove.com/2017/07/03/TCP%E5%8D%8F%E8%AE%AE%E7%9A%84%E7%AE%80%E5%8D%95%E7%90%86%E8%A7%A3/ | TCP协议的简单理解 | 放码过来
+https://blog.csdn.net/ce123_zhouwei/article/details/8976006 | 面向报文（UDP）和面向字节流（TCP）的区别 - ce123的技术博客 - CSDN博客
+https://www.jianshu.com/p/9ad55e8fcce2 | TCP是基于流式传输的 - 简书
+https://blog.csdn.net/oshirdey/article/details/38467391 | 浅析TCP字节流与UDP数据报的区别 - oshirdey的专栏 - CSDN博客
+
+https://www.google.com/search?q=redis+%E7%BC%93%E5%AD%98%E6%B7%98%E6%B1%B0&oq=redis++%E7%BC%93%E5%AD%98%E6%B7%98%E6%B1%B0&aqs=chrome..69i57j0.5143j0j7&sourceid=chrome&ie=UTF-8 | redis 缓存淘汰 - Google 搜索
+https://dunwu.github.io/blog/2019/03/06/database/nosql/redis/Redis%E7%BC%93%E5%AD%98%E6%B7%98%E6%B1%B0%E7%AD%96%E7%95%A5/ | Redis 缓存淘汰策略 | 静默虚空的博客
+http://blog.jobbole.com/105335/ | Redis 内存淘汰机制 - 文章 - 伯乐在线
+https://blog.csdn.net/yangtuogege/article/details/77970896 | redis缓存淘汰策略 - yangtuogege的博客 - CSDN博客
+
+https://www.google.com/search?q=%E5%9B%9E%E6%BA%AF%E6%B3%95+%E5%B8%B8%E7%94%A8&oq=%E5%9B%9E%E6%BA%AF%E6%B3%95+%E5%B8%B8%E7%94%A8&aqs=chrome..69i57.4177j0j7&sourceid=chrome&ie=UTF-8 | 回溯法 常用 - Google 搜索
+
+https://www.google.com/search?newwindow=1&safe=strict&ei=_JquXPneD4vU0gSat47gBA&q=%E6%95%B0%E6%8D%AE%E5%BA%93%E4%B9%90%E8%A7%82%E9%94%81+version+%E5%AE%9E%E8%B7%B5&oq=%E6%95%B0%E6%8D%AE%E5%BA%93%E4%B9%90%E8%A7%82%E9%94%81+version+%E5%AE%9E%E8%B7%B5&gs_l=psy-ab.3...3904.8931..9441...0.0..0.230.3957.2-18......0....1..gws-wiz.......35i39j0i12j0i30j35i304i39.W8CEY0i-vhw | 数据库乐观锁 version 实践 - Google 搜索
+https://segmentfault.com/a/1190000008935924 | MySQL乐观锁在分布式场景下的实践 - 空中漫步 - SegmentFault 思否
+https://blog.csdn.net/qq_38765404/article/details/82253834 | MYSQL数据库乐观锁之设计version字段 - 小明的生活 - CSDN博客
+
+https://www.youtube.com/watch?v=KOic-GozMTo&list=PLjSwXXbVlK6IHzhLOMpwHHLjYmINRstrk&index=2 | tensorflow 第二课 - YouTube
+https://www.zhihu.com/search?type=content&q=tensorflow%20%E5%AD%A6%E4%B9%A0 | tensorflow 学习 - 搜索结果 - 知乎
+https://www.zhihu.com/question/49909565 | (4 封私信 / 14 条消息) TensorFlow 如何入门，如何快速学习？ - 知乎
+http://playground.tensorflow.org/#activation=tanh&batchSize=10&dataset=circle&regDataset=reg-plane&learningRate=0.03&regularizationRate=0&noise=0&networkShape=4,2&seed=0.05127&showTestData=false&discretize=false&percTrainData=50&x=true&y=true&xTimesY=false&xSquared=true&ySquared=false&cosX=false&sinX=false&cosY=false&sinY=false&collectStats=false&problem=classification&initZero=false&hideText=false | A Neural Network Playground
+https://www.youtube.com/watch?v=tM4z02cDNa4&list=PLXO45tsB95cKI5AIlf5TxxFPzb-0zeVZ8&index=7 | Tensorflow 3 例子1 (神经网络 教学教程tutorial) - YouTube
+https://github.com/tensorflow/models/tree/master/research | models/research at master · tensorflow/models
+https://github.com/tensorflow/models/blob/master/official/recommendation/ncf_common.py | models/ncf_common.py at master · tensorflow/models
+
+https://www.google.com/search?newwindow=1&safe=strict&ei=QW2HXOmlDu-ymAXxmajYCA&q=%E9%9B%B6%E6%8B%B7%E8%B4%9D++java&oq=%E9%9B%B6%E6%8B%B7%E8%B4%9D++java&gs_l=psy-ab.3..0j0i8i30.7502.8197..8516...0.0..0.302.1618.2-5j1......0....1..gws-wiz.......0i12j0i30j0i5i30.7fRdKfOHbSw | 零拷贝 java - Google 搜索
+https://my.oschina.net/plucury/blog/192577 | 理解Netty中的零拷贝（Zero-Copy）机制 - plucury的个人空间 - 开源中国
+http://cxy7.com/articles/2018/06/13/1528903352705.html#b3_solo_h1_8 | Java NIO中的Zero-copy（零拷贝）技术 - CXY的大数据实践田
+https://blog.csdn.net/zhouhao88410234/article/details/77574689 | java零拷贝原理 - K-Darker的专栏 - CSDN博客
+https://blog.csdn.net/u013096088/article/details/79122671 | Java NIO学习笔记四（零拷贝详解） - 拿笔小星的博客 - CSDN博客
+https://www.google.com/search?q=java+file+%E9%9B%B6%E6%8B%B7%E8%B4%9D&oq=java++file++%E9%9B%B6%E6%8B%B7%E8%B4%9D&aqs=chrome..69i57.20139j0j7&sourceid=chrome&ie=UTF-8 | java file 零拷贝 - Google 搜索
+https://docs.oracle.com/javase/8/docs/api/ | FileChannel (Java Platform SE 8 )
+
+https://www.cnblogs.com/z-sm/p/6547709.html | Java零拷贝 - March On - 博客园
+https://www.google.com/search?q=%E5%8D%95%E4%BE%8B+%E5%8F%8D%E5%B0%84&oq=%E5%8D%95%E4%BE%8B+%E5%8F%8D%E5%B0%84&aqs=chrome..69i57.2923j0j7&sourceid=chrome&ie=UTF-8 | 单例 反射 - Google 搜索
+http://www.voidcn.com/article/p-qtbevjhp-xu.html | java单例模式详解完美实现(包括反射破坏的防止和线程安全) - 程序园
+https://www.cnblogs.com/wyb628/p/6371827.html | 反射如何破坏单例模式 - LeoWang, - 博客园
+https://blog.csdn.net/u013256816/article/details/50525335 | 如何防止单例模式被JAVA反射攻击 - 朱小厮的博客 - CSDN博客
+https://www.google.com/search?q=%E5%8D%95%E4%BE%8B+%E7%B1%BB%E5%8A%A0%E8%BD%BD%E5%99%A8&oq=%E5%8D%95%E4%BE%8B++%E7%B1%BB%E5%8A%A0%E8%BD%BD%E5%99%A8&aqs=chrome..69i57j0l3.55934j0j7&sourceid=chrome&ie=UTF-8 | 单例 类加载器 - Google 搜索
+https://blog.csdn.net/tiwerbao/article/details/49049517 | 单例 变 多例--多ClassLoader实例加载 - 无止于天涯 - Always on the Road - CSDN博客
+https://www.google.com/search?q=%E4%BD%BF%E7%94%A8%E7%B3%BB%E7%BB%9F%E7%B1%BB%E5%8A%A0%E8%BD%BD%E5%99%A8&oq=%E4%BD%BF%E7%94%A8%E7%B3%BB%E7%BB%9F%E7%B1%BB%E5%8A%A0%E8%BD%BD%E5%99%A8&aqs=chrome..69i57&sourceid=chrome&ie=UTF-8 | 使用系统类加载器 - Google 搜索
+https://lgbolgger.iteye.com/blog/2161094 | 类加载器与单例 - 乒乓狂魔(源码研究群QQ 345731741) 已搬往开源中国 - ITeye博客
+https://github.com/xu1995yong/Docs/blob/master/JAVA%E8%99%9A%E6%8B%9F%E6%9C%BA.md | Docs/JAVA虚拟机.md at master · xu1995yong/Docs
+https://www.google.com/search?q=java+%E7%A8%8B%E5%BA%8F+%E7%B1%BB%E5%8A%A0%E8%BD%BD%E5%99%A8&oq=java++%E7%A8%8B%E5%BA%8F+%E7%B1%BB%E5%8A%A0%E8%BD%BD%E5%99%A8&aqs=chrome..69i57.14816j0j7&sourceid=chrome&ie=UTF-8 | java 程序 类加载器 - Google 搜索
+https://blog.csdn.net/justloveyou_/article/details/72217806 | 深入理解Java类加载器(一)：Java类加载原理解析 - Rico's Blogs - CSDN博客
+
+https://www.google.com/search?q=java+%E7%B1%BB%E5%8A%A0%E8%BD%BD%E5%99%A8+%E8%B4%9F%E8%B4%A3%E5%8A%A0%E8%BD%BD&oq=java+%E7%B1%BB%E5%8A%A0%E8%BD%BD%E5%99%A8+%E8%B4%9F%E8%B4%A3%E5%8A%A0%E8%BD%BD&aqs=chrome..69i57.7213j0j7&sourceid=chrome&ie=UTF-8 | java 类加载器 负责加载 - Google 搜索
+https://www.ibm.com/developerworks/cn/java/j-lo-classloader/index.html | 深入探讨 Java 类加载器
+
+https://www.google.com/search?newwindow=1&safe=strict&ei=X4uHXMqAJYqGr7wP7c688AI&q=jdk+9++%E7%B1%BB%E5%8A%A0%E8%BD%BD%E5%99%A8&oq=jdk+9++%E7%B1%BB%E5%8A%A0%E8%BD%BD%E5%99%A8&gs_l=psy-ab.3...321508.325213..325340...0.0..0.316.5468.2-16j3......0....1..gws-wiz.......35i39j0j0i12j0i10j0i19j0i30i19j0i8i30.HL18bljZMEw | jdk 9 类加载器 - Google 搜索
+https://blog.csdn.net/javazejian/article/details/73413292#%E7%B3%BB%E7%BB%9Fsystem%E7%B1%BB%E5%8A%A0%E8%BD%BD%E5%99%A8 | 深入理解Java类加载器(ClassLoader) - zejian的博客 - CSDN博客
+https://docs.oracle.com/javase/9/docs/api/java/lang/ClassLoader.html | ClassLoader (Java SE 9 & JDK 9 )
+https://juejin.im/post/5b86bf86e51d4538e01903ff | 聊聊java9的classloader - 掘金
+
+https://www.google.com/search?q=%E8%BF%9B%E7%A8%8B%E9%97%B4+%E9%80%9A%E4%BF%A1&oq=%E8%BF%9B%E7%A8%8B%E9%97%B4+%E9%80%9A%E4%BF%A1&aqs=chrome..69i57j0l5.4514j0j7&sourceid=chrome&ie=UTF-8 | 进程间 通信 - Google 搜索
+https://blog.csdn.net/gatieme/article/details/50908749 | Linux进程间通信的几种方式总结--linux内核剖析（七） - AderStep - CSDN博客
+
+https://www.google.com/search?q=LinkedHashMap&oq=LinkedHashMap&aqs=chrome..69i57j0l5.967j0j7&sourceid=chrome&ie=UTF-8 | LinkedHashMap - Google 搜索
+https://blog.csdn.net/justloveyou_/article/details/71713781 | Map 综述（二）：彻头彻尾理解 LinkedHashMap - Rico's Blogs - CSDN博客
+
+https://blog.csdn.net/Luomingkui1109/article/details/78403710 | Redis和MySQL数据同步及Redis使用场景 - 似梦似意境 - CSDN博客
+https://www.google.com/search?newwindow=1&safe=strict&rlz=1C1NHXL_zh-CNKR829KR829&ei=3s5iXN-9LY_u8wWAhYC4DA&q=redis+%E8%B7%B3%E8%B7%83%E5%88%97%E8%A1%A8&oq=redis+%E8%B7%B3%E8%B7%83%E5%88%97%E8%A1%A8&gs_l=psy-ab.3...73467.88001..88167...1.0..0.312.6607.2-19j4......0....1..gws-wiz.......35i39j0j0i203j0i12j0i13j33i160.Lz1DSyLAanM | redis 跳跃列表 - Google 搜索
+https://dsqiu.iteye.com/blog/1705530 | Skip List（跳跃表）原理详解与实现 - One thing I know,that is I know nothing.(Socrates Greek) - ITeye博客
+https://blog.csdn.net/yang_yulei/article/details/46275283 | 查找——图文翔解SkipList（跳跃表） - 菜鸟的自留地-mooyang - CSDN博客
+https://blog.csdn.net/universe_ant/article/details/51134020 | Redis中的跳跃表 - universe_ant的博客 - CSDN博客
+https://redisbook.readthedocs.io/en/latest/internal-datastruct/skiplist.html | 跳跃表 — Redis 设计与实现
